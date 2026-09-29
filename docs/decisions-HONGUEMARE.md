@@ -23,16 +23,14 @@ Registre des arbitrages de José Mazzarese. Il fait foi sur `proposition-optimis
 | Renommage des onglets | **Non.** |
 | « 19/052026 » | **Correction automatique** en « 19/05/2026 ». |
 | Autres anomalies (02 L83 en 2027, 02 F84 « s », note vide MOE-MOA A35, fautes de Coordonnees) | **Corriger et lister.** |
-| CREACEPT (BET cuisine) | **Supprimer** la section de MOE-MOA. |
-| SIEGE 27 | **Créer** une section dans MOE-MOA. |
 | Économiste | **Garder** la section, même vide. |
 | Doublons existants | **Surligner en bleu** (remplissage) ; masquage manuel par José. |
 | Nouveaux ajouts | **Pas de bleu** : ils sont déjà validés dans l'Excel de résumé routé. |
 | PM | **Devient un statut de FAIT LE** : ligne conservée et grisée, jamais masquée. POUR LE peut garder une vraie date, ou rester vide. Un statut actif (Relance, URGENT, En attente) remplace PM. |
 | Résumé routé | **Excel, une seule feuille**, ordonnée comme le CR ; les points `[?]` sont bloquants. |
 | Sous-sections | Saut de page avant chaque ÉTUDES / TRAVAUX, recalculé à chaque CR (validé en connaissance du surcroît de pages). |
-| CREACEPT | Lignes de la section supprimées ; suppression signalée dans le rapport. |
-| SIEGE 27 | Code `SIE-`, section placée après celle du maître d'ouvrage. |
+| CREACEPT (BET cuisine) | **Supprimer** les lignes de la section MOE-MOA ; suppression signalée dans le rapport. |
+| SIEGE 27 | **Créer** une section dans MOE-MOA, code `SIE-`, placée après celle du maître d'ouvrage. |
 | Page de garde | **Formules** (titre et prochaine réunion calculés depuis la date du CR). |
 | Lignes vides | **2 lignes vides** en fin de sous-section. Ajout de lignes autorisé si besoin. |
 | Mise en page | Chaque sous-section (ÉTUDES / TRAVAUX) **commence en haut d'une page**. |
