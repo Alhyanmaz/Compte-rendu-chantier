@@ -1039,8 +1039,11 @@ for sh in MIGR_SHEETS:
     for R_ in info.get((sh, '_sie_rows'), [])[:1]:
         kinds[R_] = 'header'
     obs_rows = sorted(R_ for R_, k in kinds.items() if k == 'obs')
-    if obs_rows:                                   # bordures de la 1re observation de la feuille = gabarit
-        tmpl = {c.get('r')[0]: xfs_el[int(c.get('s', '0'))].get('borderId', '0') for c in rowel[obs_rows[0]] if c.get('r')[0] in 'ABCDE'}
+    if obs_rows:
+        # gabarit = une observation « courante » (précédée d'une observation) : traits fins haut et bas,
+        # comme la 1re ligne d'ÉTUDES ; pas la ligne qui suit un en-tête (trait moyen en haut)
+        mid = [R_ for R_ in obs_rows if kinds.get(R_ - 1) == 'obs'] or obs_rows
+        tmpl = {c.get('r')[0]: xfs_el[int(c.get('s', '0'))].get('borderId', '0') for c in rowel[mid[0]] if c.get('r')[0] in 'ABCDE'}
     for R_, k in kinds.items():
         row = rowel.get(R_)
         if row is None:
@@ -1055,8 +1058,10 @@ for sh in MIGR_SHEETS:
             yellow = k == 'obs' and fill_rgb_of(c.get('s')) == 'FFFFFF00'
             restyle_cell(c, bid, no_fill=yellow)
     # lignes vides des tableaux : masquées pour ne pas les imprimer (réserve conservée, 29/09/2026)
+    table_last = {t['new_rows'][-1] for t in info[(sh, '_tables')] if t.get('new_rows')}
     for R_, k in kinds.items():
-        if k == 'empty' and R_ in rowel and HIDE_EMPTY:
+        if k == 'empty' and R_ in rowel and HIDE_EMPTY and R_ not in table_last:   # la dernière ligne reste visible :
+            # c'est elle qui porte le trait épais de bas de tableau (style du tableau)
             rowel[R_].set('hidden', '1')
             report.setdefault('lignes_vides_masquees', 0)
             report['lignes_vides_masquees'] += 1
