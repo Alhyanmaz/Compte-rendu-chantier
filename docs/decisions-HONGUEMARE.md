@@ -34,8 +34,24 @@ Registre des arbitrages de José Mazzarese. Il fait foi sur `proposition-optimis
 | Page de garde | **Formules** (titre et prochaine réunion calculés depuis la date du CR). |
 | Lignes vides | **2 lignes vides** en fin de sous-section. Ajout de lignes autorisé si besoin. |
 | Mise en page | Chaque sous-section (ÉTUDES / TRAVAUX) **commence en haut d'une page**. |
+| Relance des lignes PM | **Jamais**, même si POUR LE porte une date dépassée. |
+| Onglet « Points à traiter » | Repris de la discussion claude.ai (§ 8), **adapté** à la liste fermée dans FAIT LE : voir ci-dessous. |
+
+## Onglet « Points à traiter » (Excel 365)
+
+Récapitulatif fourni par José (discussion claude.ai), adapté par Claude à la décision « statuts dans FAIT LE » : il n'y a pas de colonnes STATUT ni ATTENTE DE.
+
+- Formules uniquement (VSTACK + FILTRE + TRIER + LET) sur les tableaux de tous les onglets d'observations, avec dateCR = 'Page de garde'!B22.
+- **Bloc 1 URGENT** : FAIT LE = « URGENT ».
+- **Bloc 2 ÉCHÉANCE DÉPASSÉE** : POUR LE < dateCR et FAIT LE vide, « Relance » ou commençant par « En attente », trié par POUR LE croissant. PM est exclu.
+- **Bloc 3 EN ATTENTE** : FAIT LE commençant par « En attente », trié par organisme (texte après « En attente »).
+- Colonnes : N° | GAUCHE(OBSERVATIONS;120) | POUR LE | FAIT LE.
+- « Aucun résultat » : 3e argument de FILTRE = "—". Blocs côte à côte ou très espacés (#PROPAGATION!).
+- En haut : tableau de comptage par onglet (NB.SI / SOMMEPROD).
+- Onglet interne, exclu de l'impression et du PDF.
+- À tester dans Excel 365 : ces fonctions ne sont pas évaluables dans l'environnement de Claude.
 
 ## En attente
 
-- Ligne PM avec une date en POUR LE dépassée : relance automatique, ou non ?
-- « Onglet Synthèse » : José redemande son contenu dans la discussion claude.ai.
+- Pose des formules de « Points à traiter » : par Claude (XML), ou collées par José dans Excel.
+- Exclusion de « Points à traiter » du PDF : onglet masqué, ou visible et export par sélection d'onglets.
