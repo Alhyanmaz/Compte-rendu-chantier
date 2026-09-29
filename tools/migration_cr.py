@@ -265,17 +265,38 @@ def condense(runs):
     bare = [p for p in pieces if p[2] and BARE.match(p[2])]
     if len(subst) <= 2 and len(bare) < 2:
         return None
+    # Ordre chronologique : chaque suite de relances est résumée à sa place
+    # (« Relancé N fois, dernière le … »). Le compteur repart de 0 après chaque
+    # mise à jour de fond (décision du 29/09/2026).
+    events = []                                   # ('S', piece) ou ('R', [pieces])
+    for p in pieces:
+        if not p[2]:
+            continue
+        if BARE.match(p[2]):
+            if events and events[-1][0] == 'R':
+                events[-1][1].append(p)
+            else:
+                events.append(('R', [p]))
+        else:
+            events.append(('S', p))
+    s_idx = [i for i, e in enumerate(events) if e[0] == 'S']
+    start = s_idx[-2] if len(s_idx) >= 2 else (s_idx[0] if s_idx else 0)
+    if start > 0 and events[start - 1][0] == 'R':  # relances qui précèdent la 1re mise à jour affichée
+        start -= 1
+    shown = events[start:]
+    omitted = [e for e in events[:start] if e[0] == 'S']
     out = [(rpr_at(runs, head_pos), head)]
-    omitted = subst[:-2]
     if omitted:
         n = len(omitted)
-        out.append((rpr_at(runs, omitted[0][0]),
+        out.append((rpr_at(runs, omitted[0][1][0]),
                     '\n(… %d point%s antérieur%s : voir HISTORIQUE)' % (n, 's' if n > 1 else '', 's' if n > 1 else '')))
-    for st, dt, body in subst[-2:]:
-        out.append((rpr_at(runs, st), '\n→ Au %s : %s' % (full_date(dt), body)))
-    if bare:
-        last = bare[-1]
-        out.append((rpr_at(runs, last[0]), '\n→ Relancé %d fois, dernière le %s' % (len(bare), full_date(last[1]))))
+    for kind, e in shown:
+        if kind == 'S':
+            st, dt, body = e
+            out.append((rpr_at(runs, st), '\n→ Au %s : %s' % (full_date(dt), body)))
+        else:
+            last = e[-1]
+            out.append((rpr_at(runs, last[0]), '\n→ Relancé %d fois, dernière le %s' % (len(e), full_date(last[1]))))
     # rPr sans gras forcé : on garde celui de la source
     return out, len(bare), bare[-1][1] if bare else None
 

@@ -35,6 +35,7 @@ Registre des arbitrages de José Mazzarese. Il fait foi sur `proposition-optimis
 | Lignes vides | **2 lignes vides** en fin de sous-section. Ajout de lignes autorisé si besoin. |
 | Mise en page | Chaque sous-section (ÉTUDES / TRAVAUX) **commence en haut d'une page**. |
 | Relance des lignes PM | **Jamais**, même si POUR LE porte une date dépassée. |
+| Relances dans le texte condensé | **Ordre chronologique** : chaque suite de relances est résumée à sa place (« Relancé N fois, dernière le … »), avant la mise à jour qui la suit. **Le compteur repart de 0 après chaque mise à jour de fond.** Les relances qui précèdent la première mise à jour affichée sont montrées. |
 | Onglet « Points à traiter » | Repris de la discussion claude.ai (§ 8), **adapté** à la liste fermée dans FAIT LE : voir ci-dessous. |
 
 ## Onglet « Points à traiter » (Excel 365)
