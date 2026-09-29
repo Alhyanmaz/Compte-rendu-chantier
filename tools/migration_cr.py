@@ -55,7 +55,8 @@ ATTENTE_MAP = {'': 'En attente', 'MOA': 'En attente MOA', 'RETOUR MOA': 'En atte
                'CT': 'En attente DEKRA', 'RETOUR HAMES': 'En attente AHMES'}
 ATTENTE_PERTE = {'PHASE 2', 'MISE AU POINT CHAUFFERIE', 'MAJ PROCESS', 'BAT', '22/09/2026'}
 ABORD_FIX = {  # ABORDÉ LE corrigés sur décision de José (29/09/2026) : N° -> date
-    '02-066': datetime.datetime(2026, 6, 2), '05-009': datetime.datetime(2026, 5, 20)}
+    '02-066': datetime.datetime(2026, 6, 2), '05-009': datetime.datetime(2026, 5, 20),
+    '03-035': datetime.datetime(2026, 6, 16)}
 TERMINAUX = {'ANNULÉ': 'Annulé', 'ANNULE': 'Annulé', 'DOUBLON': 'Doublon', 'SANS OBJET': 'Sans objet',
              'REFUSÉ': 'Refusé', 'REFUSE': 'Refusé'}
 
