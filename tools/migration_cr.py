@@ -289,7 +289,7 @@ def condense(runs):
     if omitted:
         n = len(omitted)
         out.append((rpr_at(runs, omitted[0][1][0]),
-                    '\n(… %d point%s antérieur%s : voir HISTORIQUE)' % (n, 's' if n > 1 else '', 's' if n > 1 else '')))
+                    '\n[...]'))
     for kind, e in shown:
         if kind == 'S':
             st, dt, body = e

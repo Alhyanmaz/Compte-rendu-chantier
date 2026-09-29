@@ -35,7 +35,7 @@ Registre des arbitrages de José Mazzarese. Il fait foi sur `proposition-optimis
 | Lignes vides | **2 lignes vides** en fin de sous-section. Ajout de lignes autorisé si besoin. |
 | Mise en page | Chaque sous-section (ÉTUDES / TRAVAUX) **commence en haut d'une page**. |
 | Relance des lignes PM | **Jamais**, même si POUR LE porte une date dépassée. |
-| Relances dans le texte condensé | **Ordre chronologique** : chaque suite de relances est résumée à sa place (« Relancé N fois, dernière le … »), avant la mise à jour qui la suit. **Le compteur repart de 0 après chaque mise à jour de fond.** Les relances qui précèdent la première mise à jour affichée sont montrées. |
+| Relances dans le texte condensé | **Ordre chronologique** : chaque suite de relances est résumée à sa place (« Relancé N fois, dernière le … »), avant la mise à jour qui la suit. **Le compteur repart de 0 après chaque mise à jour de fond.** Les relances qui précèdent la première mise à jour affichée sont montrées *(en révision : voir « En attente »)*. Les mises à jour masquées sont signalées par **« [...] »**. |
 | Onglet « Points à traiter » | Repris de la discussion claude.ai (§ 8), **adapté** à la liste fermée dans FAIT LE : voir ci-dessous. |
 
 ## Onglet « Points à traiter » (Excel 365)
@@ -53,6 +53,8 @@ Récapitulatif fourni par José (discussion claude.ai), adapté par Claude à la
 - À tester dans Excel 365 : ces fonctions ne sont pas évaluables dans l'environnement de Claude.
 
 ## En attente
+
+- Relances placées **avant** une remarque affichée : les garder (cas MOA-012 du 29/09), ou les supprimer pour ne montrer que celles qui suivent la dernière remarque ?
 
 - Pose des formules de « Points à traiter » : par Claude (XML), ou collées par José dans Excel.
 - Exclusion de « Points à traiter » du PDF : onglet masqué, ou visible et export par sélection d'onglets.
