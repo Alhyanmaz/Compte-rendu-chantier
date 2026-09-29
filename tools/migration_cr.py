@@ -30,26 +30,13 @@ BLUE_FILL = 'FFBDD7EE'
 ORANGE_FILL = 'FFF8CBAD'
 EXTRA_COLS = ['DATE RETARD', 'SECTION', 'JOURS RETARD']   # G, H, I : colonnes de calcul masquées
 LAST_COL = 'I'
-WEEKEND = 11        # NB.JOURS.OUVRES.INTL : 11 = dimanche seul -> jours ouvrables (lundi-samedi hors fériés)
-FERIES = ['2026-01-01', '2026-04-06', '2026-05-01', '2026-05-08', '2026-05-14', '2026-05-25', '2026-07-14',
-          '2026-08-15', '2026-11-01', '2026-11-11', '2026-12-25', '2027-01-01', '2027-03-29', '2027-05-01',
-          '2027-05-06', '2027-05-08', '2027-05-17', '2027-07-14', '2027-08-15', '2027-11-01', '2027-11-11',
-          '2027-12-25', '2028-01-01', '2028-04-17', '2028-05-01', '2028-05-08', '2028-05-25', '2028-06-05',
-          '2028-07-14', '2028-08-15', '2028-11-01', '2028-11-11', '2028-12-25']
-
-
-def ouvrables(s, e):
-    """Formule Excel 2007 (sans NB.JOURS.OUVRES.INTL, non reconnue par LibreOffice sous sa forme de fichier) :
-    jours ouvrables de s à e inclus = lundi-vendredi hors fériés + samedis - fériés tombant un samedi."""
-    return ('MAX(0,NETWORKDAYS({s},{e},JoursFeries)+INT((WEEKDAY({s}-7)+{e}-{s})/7)'
-            '-SUMPRODUCT((JoursFeries>={s})*(JoursFeries<={e})*(WEEKDAY(JoursFeries)=7)))').format(s=s, e=e)
 
 
 def f_jours(Rw):
-    """Jours ouvrables de retard (lundi-samedi hors fériés), comptés à partir du lendemain de DATE RETARD."""
-    g = '($G{0}+1)'.format(Rw)
-    return ('IF($E{0}="Retard",IF(ISNUMBER($G{0}),{1},""),'
-            'IF(AND(ISNUMBER($G{0}),ISNUMBER($E{0})),{2},""))').format(Rw, ouvrables(g, 'dateCR'), ouvrables(g, '$E%d' % Rw))
+    """Jours CALENDAIRES de retard (décision du 29/09/2026), comptés à partir de DATE RETARD
+    jusqu'à la date du CR, ou jusqu'à la date de clôture si le point est soldé."""
+    return ('IF($E{0}="Retard",IF(ISNUMBER($G{0}),MAX(0,dateCR-$G{0}),""),'
+            'IF(AND(ISNUMBER($G{0}),ISNUMBER($E{0})),MAX(0,$E{0}-$G{0}),""))').format(Rw)
 
 
 def set_formula_str(c, f):
@@ -1352,11 +1339,6 @@ cells[('Q', 4)] = c_xml('Q4', 'Confondu avec', st_hdr)
 for i, (a, z) in enumerate(SIGLES):
     cells[('P', 5 + i)] = c_xml('P%d' % (5 + i), a, st_body)
     cells[('Q', 5 + i)] = c_xml('Q%d' % (5 + i), z, st_body)
-cells[('S', 3)] = c_xml('S3', '6. Jours fériés (calcul des jours ouvrables de retard)', st_title)
-cells[('S', 4)] = c_xml('S4', 'Date', st_hdr)
-for i, d in enumerate(FERIES):
-    cells[('S', 5 + i)] = c_xml('S%d' % (5 + i), (datetime.datetime.strptime(d, '%Y-%m-%d') - EPOCH).days, st_date)
-add_name('JoursFeries', "'Référentiel'!$S$5:$S$%d" % (4 + len(FERIES)))
 add_sheet('Référentiel', build_sheet(cells, [('A', 10), ('B', 26), ('C', 22), ('D', 42), ('E', 34), ('F', 12),
                                              ('H', 26), ('J', 22), ('K', 30), ('M', 20), ('N', 30), ('P', 10), ('Q', 16), ('S', 12)]),
           state='hidden')
@@ -1370,7 +1352,7 @@ for sh in OBS_SHEETS:
 add_name('TousLesPoints', '_xlfn.VSTACK(%s)' % ','.join('%s[#Data]' % n for n in all_tabs))
 cells = {('A', 1): c_xml('A1', 'POINTS À TRAITER — onglet interne masqué, exclu du PDF', st_title),
          ('A', 2): c_xml('A2', 'Comptage : formules classiques. Les 3 blocs du bas sont à compléter en collant les formules du rapport.', st_body)}
-heads = ['Onglet', 'Observations', 'URGENT', 'Relance', 'En attente', 'PM', 'Soldées (date)', 'Retard', 'Jours ouvrables de retard']
+heads = ['Onglet', 'Observations', 'URGENT', 'Relance', 'En attente', 'PM', 'Soldées (date)', 'Retard', 'Jours de retard (calendaires)']
 for i, h in enumerate(heads):
     cells[('ABCDEFGHI'[i], 4)] = c_xml('%s4' % 'ABCDEFGHI'[i], h, st_hdr)
 r = 5
@@ -1400,7 +1382,7 @@ for k, (col0, title) in enumerate((('A', 'BLOC 1 — URGENT'), ('F', 'BLOC 2 —
             col = col_letter(ci0 + dc)
             cells[(col, rr)] = c_xml('%s%d' % (col, rr), None, st_date)
 cells[('P', top)] = c_xml('P%d' % top, 'BLOC 4 — RETARDS (statut posé par José)', st_title)
-for i, h in enumerate(['N°', 'Observation (120 car.)', 'Section', 'En retard depuis', 'Jours ouvrables']):
+for i, h in enumerate(['N°', 'Observation (120 car.)', 'Section', 'En retard depuis', 'Jours calendaires']):
     col = col_letter(col_index('P') + i)
     cells[(col, top + 1)] = c_xml('%s%d' % (col, top + 1), h, st_hdr)
 cells[('P', top + 2)] = c_xml('P%d' % (top + 2), 'Coller ici la formule 4 du rapport', st_body)

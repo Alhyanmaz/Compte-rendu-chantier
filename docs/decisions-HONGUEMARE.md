@@ -95,9 +95,9 @@ Ouverture sans réparation, onglet « Test MFC », aperçu avant impression, lis
 
 - Priorité (FAIT LE ne porte qu'une valeur) : **Retard > URGENT > Relance** ; seule la Relance est automatique.
 - **Compteur factuel imprimé** : « → Relancé N fois, dernière le … **(sans réponse depuis N j)** » — jours calendaires depuis la 1re relance qui suit la dernière remarque ; absent sur une ligne soldée ou PM.
-- **Compteur de retard** : quand José passe une ligne en « Retard », la date du CR est inscrite en colonne masquée **DATE RETARD** (G) ; la colonne masquée **JOURS RETARD** (I) compte les **jours ouvrables** (lundi-samedi hors fériés, *interprétation du sens légal*) depuis le lendemain de cette date jusqu'à la date du CR, ou jusqu'à la date de clôture. Formule compatible Excel 2007 / LibreOffice, vérifiée sur 5 cas. Jours fériés 2026-2028 dans le Référentiel (nom `JoursFeries`).
-- **Texte imprimé** (à écrire par le skill à chaque CR) : « → En retard depuis le JJ/MM/AAAA : N jours ouvrables ».
-- **Récapitulatif interne** : colonnes « Retard » et « Jours ouvrables de retard » dans le comptage par onglet ; **bloc 4 RETARDS** (N°, observation, section, depuis le, jours ouvrables) dans « Points à traiter », pour lister les entreprises en retard à l'AMO. Colonne masquée **SECTION** (H) : ÉTUDES / TRAVAUX ou code de l'intervenant.
+- **Compteur de retard** : quand José passe une ligne en « Retard », la date du CR est inscrite en colonne masquée **DATE RETARD** (G) ; la colonne masquée **JOURS RETARD** (I) compte les **jours calendaires** (correction de José du 29/09/2026) depuis cette date jusqu'à la date du CR, ou jusqu'à la date de clôture. Formule vérifiée sur 3 cas.
+- **Texte imprimé** (à écrire par le skill à chaque CR) : « → En retard depuis le JJ/MM/AAAA : N jours ».
+- **Récapitulatif interne** : colonnes « Retard » et « Jours de retard (calendaires) » dans le comptage par onglet ; **bloc 4 RETARDS** (N°, observation, section, depuis le, jours calendaires) dans « Points à traiter », pour lister les entreprises en retard à l'AMO. Colonne masquée **SECTION** (H) : ÉTUDES / TRAVAUX ou code de l'intervenant.
 - Périmètre : **ÉTUDES et TRAVAUX** ; **jours seulement**, pas de montant.
 
 ## En attente
