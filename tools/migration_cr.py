@@ -27,6 +27,38 @@ DATE_CR = datetime.datetime(2026, 9, 22)
 PNS = 'http://schemas.openxmlformats.org/package/2006/relationships'
 CTNS = 'http://schemas.openxmlformats.org/package/2006/content-types'
 BLUE_FILL = 'FFBDD7EE'
+ORANGE_FILL = 'FFF8CBAD'
+EXTRA_COLS = ['DATE RETARD', 'SECTION', 'JOURS RETARD']   # G, H, I : colonnes de calcul masquées
+LAST_COL = 'I'
+WEEKEND = 11        # NB.JOURS.OUVRES.INTL : 11 = dimanche seul -> jours ouvrables (lundi-samedi hors fériés)
+FERIES = ['2026-01-01', '2026-04-06', '2026-05-01', '2026-05-08', '2026-05-14', '2026-05-25', '2026-07-14',
+          '2026-08-15', '2026-11-01', '2026-11-11', '2026-12-25', '2027-01-01', '2027-03-29', '2027-05-01',
+          '2027-05-06', '2027-05-08', '2027-05-17', '2027-07-14', '2027-08-15', '2027-11-01', '2027-11-11',
+          '2027-12-25', '2028-01-01', '2028-04-17', '2028-05-01', '2028-05-08', '2028-05-25', '2028-06-05',
+          '2028-07-14', '2028-08-15', '2028-11-01', '2028-11-11', '2028-12-25']
+
+
+def ouvrables(s, e):
+    """Formule Excel 2007 (sans NB.JOURS.OUVRES.INTL, non reconnue par LibreOffice sous sa forme de fichier) :
+    jours ouvrables de s à e inclus = lundi-vendredi hors fériés + samedis - fériés tombant un samedi."""
+    return ('MAX(0,NETWORKDAYS({s},{e},JoursFeries)+INT((WEEKDAY({s}-7)+{e}-{s})/7)'
+            '-SUMPRODUCT((JoursFeries>={s})*(JoursFeries<={e})*(WEEKDAY(JoursFeries)=7)))').format(s=s, e=e)
+
+
+def f_jours(Rw):
+    """Jours ouvrables de retard (lundi-samedi hors fériés), comptés à partir du lendemain de DATE RETARD."""
+    g = '($G{0}+1)'.format(Rw)
+    return ('IF($E{0}="Retard",IF(ISNUMBER($G{0}),{1},""),'
+            'IF(AND(ISNUMBER($G{0}),ISNUMBER($E{0})),{2},""))').format(Rw, ouvrables(g, 'dateCR'), ouvrables(g, '$E%d' % Rw))
+
+
+def set_formula_str(c, f):
+    for ch in list(c):
+        c.remove(ch)
+    c.set('t', 'str')
+    etree.SubElement(c, N + 'f').text = f
+    etree.SubElement(c, N + 'v').text = ''
+
 HIDE_EMPTY = True     # masquer les lignes vides des tableaux (optimisation des pages)
 W_NUM = 8.0       # largeur de la colonne N° ; retirée à OBSERVATIONS pour garder la largeur de page
 CPL_B = 50        # caractères par ligne estimés dans OBSERVATIONS (largeur ~45, police 9 pt)
@@ -311,7 +343,7 @@ def drop_spans(runs, spans):
     return out
 
 
-def condense(runs, abord=None):
+def condense(runs, abord=None, open_=True):
     """Structure toute observation : sujet initial en gras, puis « → Au JJ/MM/AAAA : … » et
     « → Relancé N fois, dernière le … ». Renvoie (runs, nb relances, date dernière relance)."""
     text = ''.join(t for _, t in runs)
@@ -373,7 +405,11 @@ def condense(runs, abord=None):
             out.append((plain_rpr(rpr_at(runs, st)), '\n→ Au %s : %s' % (full_date(dt), body)))
         else:
             last = e[-1]
-            out.append((plain_rpr(rpr_at(runs, last[0])), '\n→ Relancé %d fois, dernière le %s' % (len(e), full_date(last[1]))))
+            txt = '\n→ Relancé %d fois, dernière le %s' % (len(e), full_date(last[1]))
+            if open_:                              # fait objectif : jours calendaires depuis la 1re relance sans réponse
+                d0 = datetime.datetime.strptime(full_date(e[0][1]), '%d/%m/%Y')
+                txt += ' (sans réponse depuis %d j)' % (DATE_CR - d0).days
+            out.append((plain_rpr(rpr_at(runs, last[0])), txt))
     # Sujet initial en gras ; lignes suivantes sans gras, couleurs de la source
     return out, len(bare), bare[-1][1] if bare else None, mismatch
 
@@ -540,6 +576,7 @@ for sh in MIGR_SHEETS:
                     break
             code = section_code(title)
         t['code'] = code
+        cur_sec = code or ''
         for r in range(t['r0'] + 1, t['r1'] + 1):
             a = wsf.cell(r, 1).value
             at = a.strip() if isinstance(a, str) else ''
@@ -547,6 +584,7 @@ for sh in MIGR_SHEETS:
             kind = 'empty'
             if at.upper() in ('ÉTUDES', 'TRAVAUX', 'SYNTHESE'):
                 kind = 'section'
+                cur_sec = at.upper()
             elif at or any(v is not None for v in others):
                 kind = 'obs'
             num = None
@@ -555,7 +593,7 @@ for sh in MIGR_SHEETS:
                 num = '%s-%03d' % (code, counters[code])
             info[(sh, r)] = dict(kind=kind, table=t['name'], num=num, hidden=bool(wsf.row_dimensions[r].hidden),
                                  A=a, B=wsf.cell(r, 2).value, C=wsf.cell(r, 3).value, D=wsf.cell(r, 4).value,
-                                 Cv=wsv.cell(r, 3).value, Dv=wsv.cell(r, 4).value)
+                                 Cv=wsv.cell(r, 3).value, Dv=wsv.cell(r, 4).value, section=cur_sec)
         info[(sh, t['r0'])] = dict(kind='header', table=t['name'])
     report['numerotation'].update({c: n for c, n in counters.items()})
     info[(sh, '_tables')] = tabs
@@ -705,6 +743,7 @@ for sh in MIGR_SHEETS:
             c.set('width', '%.2f' % (float(wA) - W_NUM))
     cols.insert(0, etree.Element(N + 'col', min='1', max='1', width='%.2f' % W_NUM, customWidth='1'))
     etree.SubElement(cols, N + 'col', min='6', max='6', width=wA or '53', customWidth='1')
+    etree.SubElement(cols, N + 'col', min='7', max='9', width='14', hidden='1', customWidth='1')   # colonnes de calcul masquées
 
     # fusions : A{r}:D{r} -> A{r}:E{r}, contenu ramené en A
     mcs = ws.find(N + 'mergeCells')
@@ -728,7 +767,7 @@ for sh in MIGR_SHEETS:
                             nb.set('s', cb[0].get('s'))
                         cb[0].addnext(nb)
     dim = ws.find(N + 'dimension')
-    dim.set('ref', 'A1:F%d' % last)
+    dim.set('ref', 'A1:%s%d' % (LAST_COL, last))
     for sv in ws.iter(N + 'sheetView'):
         sv.attrib.pop('topLeftCell', None)
         for sel in list(sv):
@@ -742,14 +781,14 @@ for sh in MIGR_SHEETS:
             continue
         rr = sorted(table_rows[t['name']])
         tx = b.xml(t['part'])
-        ref = 'A%d:F%d' % (rr[0], rr[-1])
+        ref = 'A%d:%s%d' % (rr[0], LAST_COL, rr[-1])
         tx.set('ref', ref)
         af = tx.find(N + 'autoFilter')
         if af is not None:
             af.set('ref', ref)
             for fc in af.findall(N + 'filterColumn'):
                 fc.set('colId', str(int(fc.get('colId')) + 1))
-            for cid in (0, 5):
+            for cid in (0, 5, 6, 7, 8):
                 e = etree.Element(N + 'filterColumn', colId=str(cid), hiddenButton='1')
                 if cid == 0:
                     af.insert(0, e)
@@ -761,6 +800,8 @@ for sh in MIGR_SHEETS:
         e5 = etree.Element(N + 'tableColumn', id=str(max(ids) + 2), name='HISTORIQUE')
         tcs.insert(0, e0)
         tcs.append(e5)
+        for k, nm in enumerate(EXTRA_COLS):
+            tcs.append(etree.Element(N + 'tableColumn', id=str(max(ids) + 3 + k), name=nm))
         tcs.set('count', str(len(tcs)))
         b.touch(t['part'])
         t['new_rows'] = rr
@@ -798,7 +839,7 @@ for sh in MIGR_SHEETS:
                 tx.attrib.pop(k)
         tx.set('name', tname)
         tx.set('displayName', tname)
-        tx.set('ref', 'A%d:F%d' % (rr[0], rr[-1]))
+        tx.set('ref', 'A%d:%s%d' % (rr[0], LAST_COL, rr[-1]))
         af = tx.find(N + 'autoFilter')
         if af is not None:
             af.set('ref', tx.get('ref'))
@@ -835,14 +876,20 @@ for sh in MIGR_SHEETS:
         cB = cell_in_row(row, 'B')
         sA = cB.get('s')
         if it['kind'] == 'header':
-            for col, txt in (('A', 'N°'), ('F', 'HISTORIQUE')):
+            for col, txt in (('A', 'N°'), ('F', 'HISTORIQUE'), ('G', EXTRA_COLS[0]), ('H', EXTRA_COLS[1]), ('I', EXTRA_COLS[2])):
                 c = cell_in_row(row, col, sA)
                 set_cell_si(c, si_new([(None, txt)]), sA)
             continue
         if it['kind'] in ('section', 'empty'):
             cell_in_row(row, 'A', sA)
             cell_in_row(row, 'F', sA)
+            if it['kind'] == 'empty':
+                cell_in_row(row, 'G', cell_in_row(row, 'C').get('s'))
+                set_formula_str(cell_in_row(row, 'I', sA), f_jours(R))
             continue
+        cell_in_row(row, 'G', cell_in_row(row, 'C').get('s'))
+        set_cell_si(cell_in_row(row, 'H', sA), si_new([(None, it.get('section') or '')]), sA)
+        set_formula_str(cell_in_row(row, 'I', sA), f_jours(R))
         # observation
         if cB.get('t') == 's':
             runs = runs_of_si(int(cB.find(N + 'v').text), sA)
@@ -879,7 +926,10 @@ for sh in MIGR_SHEETS:
             report['anomalies_corrigees'].append([sh, it['num'], 'ABORDÉ LE %s → %s (décision de José ; date retirée du sujet)'
                                                   % (it['B'].strftime('%d/%m/%Y') if isinstance(it['B'], datetime.datetime) else 'vide', nd.strftime('%d/%m/%Y'))])
             it['B'] = nd
-        cond = condense(fixed, it['B']) if fixed else None
+        dv = it['Dv']
+        closed = isinstance(dv, datetime.datetime) or (isinstance(dv, str) and ' '.join(dv.split()).upper() in set(TERMINAUX) | {'PM'}) \
+            or (isinstance(it['C'], str) and it['C'].strip().upper() == 'PM')
+        cond = condense(fixed, it['B'], open_=not closed) if fixed else None
         objet = attente_objet(it['Dv'])
         if cond and objet:
             cond[0].append((plain_rpr(cond[0][-1][0]), '\n→ En attente : %s' % objet))
@@ -957,12 +1007,14 @@ for sh in MIGR_SHEETS:
         if int(row.get('r')) in new_data_rows.get(sh, ()) and 'B' in cs and 'A' not in cs:
             cell_in_row(row, 'A', cs['B'].get('s'))
             cell_in_row(row, 'F', cs['B'].get('s'))
+            cell_in_row(row, 'G', cs['C'].get('s') if 'C' in cs else None)
+            set_formula_str(cell_in_row(row, 'I', cs['B'].get('s')), f_jours(int(row.get('r'))))
 
 # en-tête du tableau SIEGE 27 : N° / HISTORIQUE
 sie_rows = info[('MOE-MOA', '_sie_rows')]
 row = [r for r in b.ws('MOE-MOA').find(N + 'sheetData') if int(r.get('r')) == sie_rows[0]][0]
 sH = cell_in_row(row, 'B').get('s')
-for col, txt in (('A', 'N°'), ('F', 'HISTORIQUE')):
+for col, txt in (('A', 'N°'), ('F', 'HISTORIQUE'), ('G', EXTRA_COLS[0]), ('H', EXTRA_COLS[1]), ('I', EXTRA_COLS[2])):
     set_cell_si(cell_in_row(row, col, sH), si_new([(None, txt)]), sH)
 
 # ================================================================== 3bis. bordures, jaune manuel retiré, MFC
@@ -1024,6 +1076,10 @@ d_yel = etree.SubElement(dxfs, N + 'dxf')
 etree.SubElement(etree.SubElement(etree.SubElement(d_yel, N + 'fill'), N + 'patternFill', patternType='solid'), N + 'bgColor', rgb='FFFFFF00')
 dxfs.set('count', str(len(dxfs)))
 id_grey, id_yel = len(dxfs) - 2, len(dxfs) - 1
+d_or = etree.SubElement(dxfs, N + 'dxf')
+etree.SubElement(etree.SubElement(etree.SubElement(d_or, N + 'fill'), N + 'patternFill', patternType='solid'), N + 'bgColor', rgb=ORANGE_FILL)
+dxfs.set('count', str(len(dxfs)))
+id_or = len(dxfs) - 1
 b.touch('xl/styles.xml')
 
 for sh in MIGR_SHEETS:
@@ -1075,6 +1131,9 @@ for sh in MIGR_SHEETS:
             continue
         r0, r1 = t['new_rows'][1], t['new_rows'][-1]
         cf = etree.Element(N + 'conditionalFormatting', sqref='A%d:E%d' % (r0, r1))
+        r0_ = etree.SubElement(cf, N + 'cfRule', type='expression', dxfId=str(id_or), priority=str(prio))
+        etree.SubElement(r0_, N + 'formula').text = '$E%d="Retard"' % r0
+        prio += 1
         r1_ = etree.SubElement(cf, N + 'cfRule', type='expression', dxfId=str(id_yel), priority=str(prio))
         etree.SubElement(r1_, N + 'formula').text = '$E%d="URGENT"' % r0
         r2_ = etree.SubElement(cf, N + 'cfRule', type='expression', dxfId=str(id_grey), priority=str(prio + 1))
@@ -1257,7 +1316,7 @@ for code, cr in REF_ROWS:
         col = 'ABCDEF'[i]
         cells[(col, r)] = c_xml('%s%d' % (col, r), v, st_wrap)
     r += 1
-STATUTS = ['Relance', 'URGENT', 'PM', 'En cours', 'En attente', 'En attente MOA', 'En attente SIEGE 27',
+STATUTS = ['Relance', 'URGENT', 'Retard', 'PM', 'En cours', 'En attente', 'En attente MOA', 'En attente SIEGE 27',
            'En attente CICLOP', 'En attente DEKRA', 'En attente VERITAS', 'En attente ACAU', 'En attente ECLA',
            'En attente CONCEPT NF', 'En attente ECHOS', 'En attente AHMES', 'En attente BESB', 'En attente ESGCB',
            'En attente ACCEO', 'En attente GAMBA', 'En attente DEMOLAF', 'En attente AXL', 'En attente AGC',
@@ -1293,8 +1352,13 @@ cells[('Q', 4)] = c_xml('Q4', 'Confondu avec', st_hdr)
 for i, (a, z) in enumerate(SIGLES):
     cells[('P', 5 + i)] = c_xml('P%d' % (5 + i), a, st_body)
     cells[('Q', 5 + i)] = c_xml('Q%d' % (5 + i), z, st_body)
+cells[('S', 3)] = c_xml('S3', '6. Jours fériés (calcul des jours ouvrables de retard)', st_title)
+cells[('S', 4)] = c_xml('S4', 'Date', st_hdr)
+for i, d in enumerate(FERIES):
+    cells[('S', 5 + i)] = c_xml('S%d' % (5 + i), (datetime.datetime.strptime(d, '%Y-%m-%d') - EPOCH).days, st_date)
+add_name('JoursFeries', "'Référentiel'!$S$5:$S$%d" % (4 + len(FERIES)))
 add_sheet('Référentiel', build_sheet(cells, [('A', 10), ('B', 26), ('C', 22), ('D', 42), ('E', 34), ('F', 12),
-                                             ('H', 26), ('J', 22), ('K', 30), ('M', 20), ('N', 30), ('P', 10), ('Q', 16)]),
+                                             ('H', 26), ('J', 22), ('K', 30), ('M', 20), ('N', 30), ('P', 10), ('Q', 16), ('S', 12)]),
           state='hidden')
 
 # ---- Points à traiter
@@ -1306,21 +1370,22 @@ for sh in OBS_SHEETS:
 add_name('TousLesPoints', '_xlfn.VSTACK(%s)' % ','.join('%s[#Data]' % n for n in all_tabs))
 cells = {('A', 1): c_xml('A1', 'POINTS À TRAITER — onglet interne masqué, exclu du PDF', st_title),
          ('A', 2): c_xml('A2', 'Comptage : formules classiques. Les 3 blocs du bas sont à compléter en collant les formules du rapport.', st_body)}
-heads = ['Onglet', 'Observations', 'URGENT', 'Relance', 'En attente', 'PM', 'Soldées (date)']
+heads = ['Onglet', 'Observations', 'URGENT', 'Relance', 'En attente', 'PM', 'Soldées (date)', 'Retard', 'Jours ouvrables de retard']
 for i, h in enumerate(heads):
-    cells[('ABCDEFG'[i], 4)] = c_xml('%s4' % 'ABCDEFG'[i], h, st_hdr)
+    cells[('ABCDEFGHI'[i], 4)] = c_xml('%s4' % 'ABCDEFGHI'[i], h, st_hdr)
 r = 5
 for sh in OBS_SHEETS:
     q = "'%s'" % sh
     fs = ['COUNTIF(%s!$A:$A,"*-???")' % q, 'COUNTIF(%s!$E:$E,"URGENT")' % q, 'COUNTIF(%s!$E:$E,"Relance")' % q,
-          'COUNTIF(%s!$E:$E,"En attente*")' % q, 'COUNTIF(%s!$E:$E,"PM")' % q, 'COUNT(%s!$E:$E)' % q]
+          'COUNTIF(%s!$E:$E,"En attente*")' % q, 'COUNTIF(%s!$E:$E,"PM")' % q, 'COUNT(%s!$E:$E)' % q,
+          'COUNTIF(%s!$E:$E,"Retard")' % q, 'SUM(%s!$I:$I)' % q]
     cells[('A', r)] = c_xml('A%d' % r, sh, st_body)
     for i, f in enumerate(fs):
-        col = 'BCDEFG'[i]
+        col = 'BCDEFGHI'[i]
         cells[(col, r)] = c_xml('%s%d' % (col, r), s=st_body, formula=f)
     r += 1
 cells[('A', r)] = c_xml('A%d' % r, 'TOTAL', st_title)
-for col in 'BCDEFG':
+for col in 'BCDEFGHI':
     cells[(col, r)] = c_xml('%s%d' % (col, r), s=st_title, formula='SUM(%s5:%s%d)' % (col, col, r - 1))
 top = r + 3
 for k, (col0, title) in enumerate((('A', 'BLOC 1 — URGENT'), ('F', 'BLOC 2 — ÉCHÉANCE DÉPASSÉE'), ('K', 'BLOC 3 — EN ATTENTE'))):
@@ -1334,8 +1399,16 @@ for k, (col0, title) in enumerate((('A', 'BLOC 1 — URGENT'), ('F', 'BLOC 2 —
         for dc in (2, 3):
             col = col_letter(ci0 + dc)
             cells[(col, rr)] = c_xml('%s%d' % (col, rr), None, st_date)
+cells[('P', top)] = c_xml('P%d' % top, 'BLOC 4 — RETARDS (statut posé par José)', st_title)
+for i, h in enumerate(['N°', 'Observation (120 car.)', 'Section', 'En retard depuis', 'Jours ouvrables']):
+    col = col_letter(col_index('P') + i)
+    cells[(col, top + 1)] = c_xml('%s%d' % (col, top + 1), h, st_hdr)
+cells[('P', top + 2)] = c_xml('P%d' % (top + 2), 'Coller ici la formule 4 du rapport', st_body)
+for rr in range(top + 2, top + 202):
+    cells[('S', rr)] = c_xml('S%d' % rr, None, st_date)
 add_sheet('Points à traiter', build_sheet(cells, [('A', 22), ('B', 60), ('C', 11), ('D', 18), ('F', 11), ('G', 60),
-                                                  ('H', 11), ('I', 18), ('K', 11), ('L', 60), ('M', 11), ('N', 18)]),
+                                                  ('H', 11), ('I', 18), ('K', 11), ('L', 60), ('M', 11), ('N', 18),
+                                                  ('P', 11), ('Q', 60), ('R', 12), ('S', 14), ('T', 12)]),
           state='hidden')
 report['points_a_traiter'] = dict(ligne_blocs=top + 2, tables=all_tabs)
 
