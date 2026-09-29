@@ -56,9 +56,13 @@ Récapitulatif fourni par José (discussion claude.ai), adapté par Claude à la
 - Onglet interne, exclu de l'impression et du PDF.
 - À tester dans Excel 365 : ces fonctions ne sont pas évaluables dans l'environnement de Claude.
 
+## Tests Excel (§ 7 du rapport) — validés par José le 29/09/2026
+
+Ouverture sans réparation, onglet « Test MFC », aperçu avant impression, liste déroulante FAIT LE, 3 formules de « Points à traiter » collées par José : **OK**.
+
 ## En attente
 
-
-
-- Pose des formules de « Points à traiter » : par Claude (XML), ou collées par José dans Excel.
-- Exclusion de « Points à traiter » du PDF : onglet masqué, ou visible et export par sélection d'onglets.
+- Généraliser la mise en forme conditionnelle (gris / jaune) à tous les onglets, à la place de la gestion manuelle ?
+- 6 statuts « En attente » dont l'objet a été retiré de FAIT LE (MOA-012 phase 2, MOA-019 et AMO-005 « 22/09/2026 », 02-011 mise au point chaufferie, 02-052 MAJ process, 08-006 BAT) : remettre l'objet dans le texte ?
+- Confirmations : « Retard AXL » → Relance (02-014) ; « HAMES » = AHMES (11-004) ; « AODEX 20 » (04-020, masquée).
+- Ligne d'en-tête répétée en haut de chaque page (initiative de Claude) : garder ?
