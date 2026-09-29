@@ -76,9 +76,15 @@ Ouverture sans réparation, onglet « Test MFC », aperçu avant impression, lis
 | Nombre de pages | À optimiser : lignes vides des tableaux **masquées** (réserve conservée), pas de saut de page avant un TRAVAUX sans ligne visible. |
 | Hauteur des lignes | Tout le texte doit être visible. **Méthode (29/09/2026)** : polices Denim INK fournies par José, installées dans l'environnement de travail (jamais versionnées : licence) ; `tools/ajuster_hauteurs.py` fait calculer par LibreOffice le nombre de lignes de texte de chaque observation, puis applique la hauteur de ligne d'Excel (12,75 pt par ligne de texte en 9 pt + 4,5 pt de marge). |
 
+## Décisions du 29/09/2026 (fin)
+
+| Sujet | Décision |
+|---|---|
+| « Retard AXL » (02-014) | → « Relance » : **validé**. |
+| Saut de page avant TRAVAUX | **Gardé** (≈ 48 pages contre 43 pour l'original ; ≈ 40 sans les sauts). |
+| Sections MOE-MOA vides | **Non masquées**. |
+| En-tête « p » vu sur une capture | Modification manuelle de José : sans objet. |
+
 ## En attente
 
-- « Retard AXL » → Relance (02-014) : à confirmer.
-- Comptabilisation des retards : solution à proposer.
-- Saut de page avant TRAVAUX : le garder (≈ 48 pages) ou le supprimer (≈ 40 pages) ? Original CRC-15 : 43 pages (mesures LibreOffice avec les vraies polices).
-- Sections MOE-MOA sans ligne visible (Économiste, SIEGE 27…) : les masquer tant qu'elles sont vides ?
+- Comptabilisation des retards : la proposition du 29/09 ne satisfait pas José ; besoin à préciser.
