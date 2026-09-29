@@ -38,6 +38,7 @@ Registre des arbitrages de José Mazzarese. Il fait foi sur `proposition-optimis
 | Structure de toutes les observations | **Toutes** les observations suivent la même structure, qu'elles aient un historique ou non : **sujet initial en gras** ; puis « → Au JJ/MM/AAAA : … » pour les 2 dernières remarques ; puis « → Relancé N fois, dernière le … ». Les lignes suivantes ne sont pas en gras et gardent les couleurs de la source. |
 | Sujet qui commence par « Au JJ/MM/AAAA » | Date **retirée** du sujet si elle est égale à ABORDÉ LE ; sinon **laissée et soumise à José** (02-066, 03-035, 05-009 au 29/09/2026). |
 | Relances sans « Au JJ/MM/AAAA » (ex. « - 25/08/26 RELANCE ») | **Supprimées** de l'affichage (restent dans HISTORIQUE). Ne se produira plus quand Claude rédigera 100 % des CR. |
+| ABORDÉ LE corrigés | **02-066** : 26/05/2026 → 02/06/2026 ; **05-009** : vide → 20/05/2026 ; la date est retirée du sujet (décision du 29/09/2026). |
 | Relances dans le texte condensé | **Règle A stricte** : seules les relances **postérieures à la dernière remarque** sont affichées (« Relancé N fois, dernière le … ») ; le compteur repart de 0 à chaque remarque. Les relances antérieures ne restent que dans HISTORIQUE. Les mises à jour masquées sont signalées par **« [...] »**. Choix confirmé par José en connaissance de cause (MOA-004, MOA-012, MOA-014 n'affichent plus leurs relances anciennes). |
 | Onglet « Points à traiter » | Repris de la discussion claude.ai (§ 8), **adapté** à la liste fermée dans FAIT LE : voir ci-dessous. |
 
@@ -57,7 +58,7 @@ Récapitulatif fourni par José (discussion claude.ai), adapté par Claude à la
 
 ## En attente
 
-- Sujets datés différemment d'ABORDÉ LE : 02-066 (texte 02/06/2026, ABORDÉ 26/05/2026), 03-035 (texte 16/06/2026, ABORDÉ 15/09/2026), 05-009 (texte 20/05/2026, ABORDÉ vide, ligne masquée).
+- 03-035 : sujet daté du 16/06/2026, ABORDÉ LE 15/09/2026 (contexte transmis à José le 29/09).
 
 
 - Pose des formules de « Points à traiter » : par Claude (XML), ou collées par José dans Excel.

@@ -54,6 +54,8 @@ ATTENTE_MAP = {'': 'En attente', 'MOA': 'En attente MOA', 'RETOUR MOA': 'En atte
                'ACAU': 'En attente ACAU', 'VISA ACAU SUR DT': 'En attente ACAU',
                'CT': 'En attente DEKRA', 'RETOUR HAMES': 'En attente AHMES'}
 ATTENTE_PERTE = {'PHASE 2', 'MISE AU POINT CHAUFFERIE', 'MAJ PROCESS', 'BAT', '22/09/2026'}
+ABORD_FIX = {  # ABORDÉ LE corrigés sur décision de José (29/09/2026) : N° -> date
+    '02-066': datetime.datetime(2026, 6, 2), '05-009': datetime.datetime(2026, 5, 20)}
 TERMINAUX = {'ANNULÉ': 'Annulé', 'ANNULE': 'Annulé', 'DOUBLON': 'Doublon', 'SANS OBJET': 'Sans objet',
              'REFUSÉ': 'Refusé', 'REFUSE': 'Refusé'}
 
@@ -322,7 +324,7 @@ def condense(runs, abord=None):
         d0 = full_date(segs[0][2])
         if isinstance(abord, datetime.datetime) and abord.strftime('%d/%m/%Y') == d0:
             head_start = segs[0][1]                # date = ABORDÉ LE : « Au JJ/MM/AAAA » retiré du sujet
-            while head_start < head_end and text[head_start] in ' :\u00a0':
+            while head_start < head_end and text[head_start] in ' :,;.-\u00a0':
                 head_start += 1
         else:
             mismatch = (d0, abord.strftime('%d/%m/%Y') if isinstance(abord, datetime.datetime) else 'vide')
@@ -848,6 +850,18 @@ for sh in MIGR_SHEETS:
         if hist_idx is not None:
             set_cell_si(cF, hist_idx, sA)
         # OBSERVATIONS condensées
+        if it['num'] in ABORD_FIX:
+            nd = ABORD_FIX[it['num']]
+            cC = cell_in_row(row, 'C')
+            if not b.is_date_style(cC.get('s')):
+                ref_c = [c for (s3, r3), i3 in info.items() if s3 == sh and isinstance(r3, int) and i3.get('kind') == 'obs'
+                         and isinstance(i3.get('B'), datetime.datetime)][0]
+                cC.set('s', b.cell(sh, 'C%d' % new_of[ref_c], False).get('s'))
+            set_cell_empty(cC)
+            etree.SubElement(cC, N + 'v').text = str((nd - EPOCH).days)
+            report['anomalies_corrigees'].append([sh, it['num'], 'ABORDÉ LE %s → %s (décision de José ; date retirée du sujet)'
+                                                  % (it['B'].strftime('%d/%m/%Y') if isinstance(it['B'], datetime.datetime) else 'vide', nd.strftime('%d/%m/%Y'))])
+            it['B'] = nd
         cond = condense(fixed, it['B']) if fixed else None
         shown = ''.join(t for _, t in fixed)
         if cond:
