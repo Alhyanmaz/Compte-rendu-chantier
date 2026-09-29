@@ -265,9 +265,8 @@ def condense(runs):
     bare = [p for p in pieces if p[2] and BARE.match(p[2])]
     if len(subst) <= 2 and len(bare) < 2:
         return None
-    # Ordre chronologique : chaque suite de relances est résumée à sa place
-    # (« Relancé N fois, dernière le … »). Le compteur repart de 0 après chaque
-    # mise à jour de fond (décision du 29/09/2026).
+    # Seules les relances postérieures à la dernière remarque sont affichées
+    # (« Relancé N fois, dernière le … ») : le compteur repart de 0 à chaque remarque.
     events = []                                   # ('S', piece) ou ('R', [pieces])
     for p in pieces:
         if not p[2]:
@@ -281,9 +280,9 @@ def condense(runs):
             events.append(('S', p))
     s_idx = [i for i, e in enumerate(events) if e[0] == 'S']
     start = s_idx[-2] if len(s_idx) >= 2 else (s_idx[0] if s_idx else 0)
-    if start > 0 and events[start - 1][0] == 'R':  # relances qui précèdent la 1re mise à jour affichée
-        start -= 1
-    shown = events[start:]
+    # Règle A (29/09/2026) : seules les relances postérieures à la dernière remarque sont affichées.
+    last_s = s_idx[-1] if s_idx else -1
+    shown = [e for i, e in enumerate(events[start:], start) if e[0] == 'S' or i > last_s]
     omitted = [e for e in events[:start] if e[0] == 'S']
     out = [(rpr_at(runs, head_pos), head)]
     if omitted:
