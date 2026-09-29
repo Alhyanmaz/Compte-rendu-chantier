@@ -60,9 +60,24 @@ Récapitulatif fourni par José (discussion claude.ai), adapté par Claude à la
 
 Ouverture sans réparation, onglet « Test MFC », aperçu avant impression, liste déroulante FAIT LE, 3 formules de « Points à traiter » collées par José : **OK**.
 
+## Décisions du 29/09/2026 (suite)
+
+| Sujet | Décision |
+|---|---|
+| Sujet initial en gras | **Annulé** : mise en forme d'origine conservée. |
+| Mise en forme conditionnelle | **Généralisée** à tous les tableaux (jaune si URGENT, gris si PM / date / statut terminal). Jaune manuel retiré. |
+| Objet des attentes hors liste | **Remis dans le texte** : « → En attente : phase 2 », etc. (sauf les dates « 22/09/2026 »). |
+| AODEX | Avis du contrôleur technique : FAIT LE « En attente DEKRA » + « → En attente : avis CT AODEX 20 » (04-020). |
+| HAMES | = AHMES (BET VRD). |
+| En-tête répétée en haut de page | **Gardée**. |
+| Bordures | Toutes les lignes comme la 1re ligne d'ÉTUDES ; **aucune bordure sur les bords extérieurs gauche et droit**. |
+| Zone d'impression | Jusqu'à la **fin du dernier tableau** (correction d'un bug de Claude qui imprimait des pages vides). |
+| Nombre de pages | À optimiser : lignes vides des tableaux **masquées** (réserve conservée), pas de saut de page avant un TRAVAUX sans ligne visible. |
+| Hauteur des lignes | Tout le texte doit être visible. |
+
 ## En attente
 
-- Généraliser la mise en forme conditionnelle (gris / jaune) à tous les onglets, à la place de la gestion manuelle ?
-- 6 statuts « En attente » dont l'objet a été retiré de FAIT LE (MOA-012 phase 2, MOA-019 et AMO-005 « 22/09/2026 », 02-011 mise au point chaufferie, 02-052 MAJ process, 08-006 BAT) : remettre l'objet dans le texte ?
-- Confirmations : « Retard AXL » → Relance (02-014) ; « HAMES » = AHMES (11-004) ; « AODEX 20 » (04-020, masquée).
-- Ligne d'en-tête répétée en haut de chaque page (initiative de Claude) : garder ?
+- « Retard AXL » → Relance (02-014) : à confirmer.
+- Comptabilisation des retards : solution à proposer.
+- Saut de page avant TRAVAUX : le garder partout où il y a des lignes, ou le supprimer pour gagner des pages ?
+- Sections MOE-MOA sans ligne visible (Économiste, SIEGE 27…) : les masquer tant qu'elles sont vides ?

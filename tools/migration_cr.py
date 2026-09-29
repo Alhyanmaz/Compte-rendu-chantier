@@ -27,6 +27,7 @@ DATE_CR = datetime.datetime(2026, 9, 22)
 PNS = 'http://schemas.openxmlformats.org/package/2006/relationships'
 CTNS = 'http://schemas.openxmlformats.org/package/2006/content-types'
 BLUE_FILL = 'FFBDD7EE'
+HIDE_EMPTY = True     # masquer les lignes vides des tableaux (optimisation des pages)
 W_NUM = 8.0       # largeur de la colonne N° ; retirée à OBSERVATIONS pour garder la largeur de page
 CPL_B = 50        # caractères par ligne estimés dans OBSERVATIONS (largeur ~45, police 9 pt)
 
@@ -57,6 +58,19 @@ ATTENTE_PERTE = {'PHASE 2', 'MISE AU POINT CHAUFFERIE', 'MAJ PROCESS', 'BAT', '2
 ABORD_FIX = {  # ABORDÉ LE corrigés sur décision de José (29/09/2026) : N° -> date
     '02-066': datetime.datetime(2026, 6, 2), '05-009': datetime.datetime(2026, 5, 20),
     '03-035': datetime.datetime(2026, 6, 16)}
+def attente_objet(d):
+    """Objet d'une attente qui ne rentre pas dans la liste fermée (remis dans le texte, décision du 29/09/2026)."""
+    if not isinstance(d, str):
+        return None
+    raw = ' '.join(d.split())
+    if raw.upper().startswith('AODEX'):
+        return 'avis CT %s' % raw
+    m = re.match(r'^en att?e?n?te\s*(.*)$', raw.replace('attnte', 'attente').replace('Attnte', 'Attente'), re.I)
+    if m and m.group(1).strip().upper() in ATTENTE_PERTE and not re.match(r'^\d{2}/\d{2}/\d{4}$', m.group(1).strip()):
+        return m.group(1).strip()
+    return None
+
+
 TERMINAUX = {'ANNULÉ': 'Annulé', 'ANNULE': 'Annulé', 'DOUBLON': 'Doublon', 'SANS OBJET': 'Sans objet',
              'REFUSÉ': 'Refusé', 'REFUSE': 'Refusé'}
 
@@ -268,7 +282,7 @@ def slice_runs(runs, a, b):
 
 
 def head_runs(runs, a, b):
-    """Sujet initial en gras, couleurs d'origine conservées, espaces de bord retirés."""
+    """Sujet initial : mise en forme d'origine conservée (gras annulé le 29/09/2026), espaces de bord retirés."""
     rs = slice_runs(runs, a, b)
     while rs and not rs[0][1].strip():
         rs.pop(0)
@@ -277,7 +291,7 @@ def head_runs(runs, a, b):
     if rs:
         rs[0] = (rs[0][0], rs[0][1].lstrip())
         rs[-1] = (rs[-1][0], rs[-1][1].rstrip())
-    return [(bold_rpr(r), t) for r, t in rs]
+    return rs
 
 
 def full_date(dt):
@@ -381,6 +395,8 @@ def norm_status(d):
         return 'En cours', None
     if u in TERMINAUX:
         return TERMINAUX[u], None
+    if u.startswith('AODEX'):
+        return 'En attente DEKRA', 'avis du CT « %s » : statut « En attente DEKRA », référence reportée dans le texte (interprétation)' % raw.strip()
     if u == 'RETARD AXL':
         return 'Relance', '« Retard AXL » converti en « Relance » (interprétation)'
     m = re.match(r'^EN ATT?E?N?TE\s*(.*)$', u.replace('ATTNTE', 'ATTENTE'))
@@ -864,6 +880,10 @@ for sh in MIGR_SHEETS:
                                                   % (it['B'].strftime('%d/%m/%Y') if isinstance(it['B'], datetime.datetime) else 'vide', nd.strftime('%d/%m/%Y'))])
             it['B'] = nd
         cond = condense(fixed, it['B']) if fixed else None
+        objet = attente_objet(it['Dv'])
+        if cond and objet:
+            cond[0].append((plain_rpr(cond[0][-1][0]), '\n→ En attente : %s' % objet))
+            report.setdefault('objets_remis', []).append([sh, it['num'], objet])
         shown = ''.join(t for _, t in fixed)
         if cond:
             nr, nrel, dlast, mism = cond
@@ -945,6 +965,121 @@ sH = cell_in_row(row, 'B').get('s')
 for col, txt in (('A', 'N°'), ('F', 'HISTORIQUE')):
     set_cell_si(cell_in_row(row, col, sH), si_new([(None, txt)]), sH)
 
+# ================================================================== 3bis. bordures, jaune manuel retiré, MFC
+borders_el = b.styles.find(N + 'borders')
+xfs_el = b.styles.find(N + 'cellXfs')
+_bcache = {}
+
+
+def border_variant(bid, drop_left=False, drop_right=False):
+    key = (int(bid), drop_left, drop_right)
+    if key in _bcache:
+        return _bcache[key]
+    bd = copy.deepcopy(borders_el[int(bid)])
+    for side, drop in (('left', drop_left), ('right', drop_right)):
+        if drop:
+            e = bd.find(N + side)
+            if e is not None:
+                for ch in list(e):
+                    e.remove(ch)
+                e.attrib.pop('style', None)
+    borders_el.append(bd)
+    borders_el.set('count', str(len(borders_el)))
+    _bcache[key] = str(len(borders_el) - 1)
+    b.touch('xl/styles.xml')
+    return _bcache[key]
+
+
+_scache = {}
+
+
+def restyle_cell(c, border_id=None, no_fill=False):
+    key = (c.get('s', '0'), border_id, no_fill)
+    if key not in _scache:
+        xf = copy.deepcopy(xfs_el[int(c.get('s', '0'))])
+        if border_id is not None:
+            xf.set('borderId', border_id)
+            xf.set('applyBorder', '1')
+        if no_fill:
+            xf.set('fillId', '0')
+        xfs_el.append(xf)
+        xfs_el.set('count', str(len(xfs_el)))
+        b.touch('xl/styles.xml')
+        _scache[key] = str(len(xfs_el) - 1)
+    c.set('s', _scache[key])
+
+
+def fill_rgb_of(s):
+    fl = b.styles.find(N + 'fills')[int(xfs_el[int(s or 0)].get('fillId', 0))]
+    fg = fl.find('.//' + N + 'fgColor')
+    return fg.get('rgb') if fg is not None else None
+
+
+dxfs = b.styles.find(N + 'dxfs')
+if dxfs is None:
+    dxfs = etree.SubElement(b.styles, N + 'dxfs', count='0')
+d_grey = etree.SubElement(dxfs, N + 'dxf')
+etree.SubElement(etree.SubElement(d_grey, N + 'font'), N + 'color', theme='0', tint='-0.499984740745262')
+d_yel = etree.SubElement(dxfs, N + 'dxf')
+etree.SubElement(etree.SubElement(etree.SubElement(d_yel, N + 'fill'), N + 'patternFill', patternType='solid'), N + 'bgColor', rgb='FFFFFF00')
+dxfs.set('count', str(len(dxfs)))
+id_grey, id_yel = len(dxfs) - 2, len(dxfs) - 1
+b.touch('xl/styles.xml')
+
+for sh in MIGR_SHEETS:
+    ws = b.ws(sh)
+    new_of = new_of_all[sh]
+    rowel = {int(r.get('r')): r for r in ws.find(N + 'sheetData')}
+    kinds = {}
+    for (s2, r), it in info.items():
+        if s2 == sh and isinstance(r, int) and r in new_of:
+            kinds[new_of[r]] = it['kind']
+    for R_ in new_data_rows.get(sh, ()):
+        kinds[R_] = 'empty'
+    for R_ in info.get((sh, '_sie_rows'), [])[:1]:
+        kinds[R_] = 'header'
+    obs_rows = sorted(R_ for R_, k in kinds.items() if k == 'obs')
+    if obs_rows:                                   # bordures de la 1re observation de la feuille = gabarit
+        tmpl = {c.get('r')[0]: xfs_el[int(c.get('s', '0'))].get('borderId', '0') for c in rowel[obs_rows[0]] if c.get('r')[0] in 'ABCDE'}
+    for R_, k in kinds.items():
+        row = rowel.get(R_)
+        if row is None:
+            continue
+        for col in 'ABCDE':
+            c = cell_in_row(row, col)
+            if k in ('obs', 'empty') and obs_rows and col in tmpl:
+                bid = border_variant(tmpl[col], drop_left=(col == 'A'), drop_right=(col == 'E'))
+            else:
+                bid = border_variant(xfs_el[int(c.get('s', '0'))].get('borderId', '0'),
+                                     drop_left=(col == 'A'), drop_right=(col == 'E'))
+            yellow = k == 'obs' and fill_rgb_of(c.get('s')) == 'FFFFFF00'
+            restyle_cell(c, bid, no_fill=yellow)
+    # lignes vides des tableaux : masquées pour ne pas les imprimer (réserve conservée, 29/09/2026)
+    for R_, k in kinds.items():
+        if k == 'empty' and R_ in rowel and HIDE_EMPTY:
+            rowel[R_].set('hidden', '1')
+            report.setdefault('lignes_vides_masquees', 0)
+            report['lignes_vides_masquees'] += 1
+    # MFC : jaune si URGENT, gris si PM / soldé (décision du 29/09/2026)
+    anchor = ws.find(N + 'phoneticPr')
+    if anchor is None:
+        anchor = ws.find(N + 'mergeCells')
+    prio = 1
+    for t in info[(sh, '_tables')]:
+        if t.get('code') == 'BET.CUI' or len(t.get('new_rows', [])) < 2:
+            continue
+        r0, r1 = t['new_rows'][1], t['new_rows'][-1]
+        cf = etree.Element(N + 'conditionalFormatting', sqref='A%d:E%d' % (r0, r1))
+        r1_ = etree.SubElement(cf, N + 'cfRule', type='expression', dxfId=str(id_yel), priority=str(prio))
+        etree.SubElement(r1_, N + 'formula').text = '$E%d="URGENT"' % r0
+        r2_ = etree.SubElement(cf, N + 'cfRule', type='expression', dxfId=str(id_grey), priority=str(prio + 1))
+        etree.SubElement(r2_, N + 'formula').text = ('OR($E{0}="PM",$E{0}="Annulé",$E{0}="Doublon",$E{0}="Sans objet",'
+                                                     '$E{0}="Refusé",ISNUMBER($E{0}))').format(r0)
+        prio += 2
+        anchor.addnext(cf)
+        anchor = cf
+    b.touch(b.sheets[sh])
+
 # ================================================================== 4. sauts de page, zones d'impression, validations
 wbx = b.xml('xl/workbook.xml')
 sheet_names = [s.get('name') for s in wbx.find(N + 'sheets')]
@@ -962,17 +1097,21 @@ def add_name(name, text, local=None, hidden=False):
 
 for sh in MIGR_SHEETS:
     ws = b.ws(sh)
-    rowsel = list(ws.find(N + 'sheetData'))
-    last = max(int(r.get('r')) for r in rowsel)
-    add_name('_xlnm.Print_Area', "'%s'!$A$1:$E$%d" % (sh, last), sheet_names.index(sh))
     tabs = info[(sh, '_tables')]
+    last = max(t['new_rows'][-1] for t in tabs if t.get('new_rows'))      # fin du dernier tableau (pas de pages vides)
+    add_name('_xlnm.Print_Area', "'%s'!$A$1:$E$%d" % (sh, last), sheet_names.index(sh))
     if sh in LOT_SHEETS:
         hdr = min(t['new_rows'][0] for t in tabs)
         add_name('_xlnm.Print_Titles', "'%s'!$%d:$%d" % (sh, hdr, hdr), sheet_names.index(sh))
         brks = []
         for (s2, r), it in info.items():
             if s2 == sh and isinstance(r, int) and it['kind'] == 'section' and str(it['A']).strip().upper() == 'TRAVAUX':
-                brks.append(new_of_all[sh][r] - 1)
+                t_end = [t for t in tabs if t['name'] == it['table']][0]['r1']
+                visible = any(info[(sh, k)]['kind'] == 'obs' and not info[(sh, k)]['hidden'] for k in range(r + 1, t_end + 1))
+                if visible:
+                    brks.append(new_of_all[sh][r] - 1)
+                else:
+                    report.setdefault('sauts_supprimes', []).append([sh, 'TRAVAUX sans ligne visible : pas de saut de page'])
         if brks:
             rb = etree.Element(N + 'rowBreaks', count=str(len(brks)), manualBreakCount=str(len(brks)))
             for k in sorted(brks):
@@ -988,7 +1127,8 @@ for sh in MIGR_SHEETS:
     d1 = etree.SubElement(dv, N + 'dataValidation', type='list', allowBlank='1', showInputMessage='1',
                           showErrorMessage='0', sqref=sq)
     etree.SubElement(d1, N + 'formula1').text = 'ListeStatuts'
-    anchor = ws.find(N + 'conditionalFormatting')
+    cfs = ws.findall(N + 'conditionalFormatting')
+    anchor = cfs[-1] if cfs else None
     if anchor is None:
         anchor = ws.find(N + 'phoneticPr')
     if anchor is None:
@@ -1192,7 +1332,8 @@ add_sheet('Points à traiter', build_sheet(cells, [('A', 22), ('B', 60), ('C', 1
           state='hidden')
 report['points_a_traiter'] = dict(ligne_blocs=top + 2, tables=all_tabs)
 
-# ---- Test MFC (mise en forme conditionnelle)
+# ---- Test MFC (validé le 29/09/2026 : onglet retiré de la copie finale)
+ADD_TEST_MFC = False
 dxfs = b.styles.find(N + 'dxfs')
 d_grey = etree.SubElement(dxfs, N + 'dxf')
 f_ = etree.SubElement(d_grey, N + 'font')
@@ -1239,7 +1380,8 @@ for k, (num, h, add, d1, d2, fe, exp) in enumerate(TESTS):
 cf = ('<conditionalFormatting sqref="A4:E9"><cfRule type="expression" dxfId="%d" priority="1"><formula>$E4="URGENT"</formula></cfRule>'
       '<cfRule type="expression" dxfId="%d" priority="2"><formula>OR($E4="PM",$E4="Annulé",$E4="Doublon",$E4="Sans objet",$E4="Refusé",ISNUMBER($E4))</formula></cfRule>'
       '</conditionalFormatting>' % (id_yel, id_grey))
-add_sheet('Test MFC', build_sheet(cells, [('A', 9.6), ('B', 53), ('C', 11), ('D', 11), ('E', 16), ('F', 34)], cf))
+if ADD_TEST_MFC:
+  add_sheet('Test MFC', build_sheet(cells, [('A', 9.6), ('B', 53), ('C', 11), ('D', 11), ('E', 16), ('F', 34)], cf))
 
 wbx.find(N + 'calcPr').set('fullCalcOnLoad', '1')
 b.touch('xl/workbook.xml')
