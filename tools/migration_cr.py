@@ -239,17 +239,58 @@ def rpr_at(runs, pos):
     return runs[-1][0]
 
 
+def bold_rpr(rpr):
+    r = copy.deepcopy(rpr)
+    for e in r.findall(N + 'b'):
+        r.remove(e)
+    r.insert(0, etree.Element(N + 'b'))
+    return r
+
+
+def plain_rpr(rpr):
+    r = copy.deepcopy(rpr)
+    for e in r.findall(N + 'b'):
+        r.remove(e)
+    return r
+
+
+def slice_runs(runs, a, b):
+    out, k = [], 0
+    for rpr, t in runs:
+        lo, hi = max(a, k), min(b, k + len(t))
+        if lo < hi:
+            out.append((rpr, t[lo - k:hi - k]))
+        k += len(t)
+    return out
+
+
+def head_runs(runs, a, b):
+    """Sujet initial en gras, couleurs d'origine conservées, espaces de bord retirés."""
+    rs = slice_runs(runs, a, b)
+    while rs and not rs[0][1].strip():
+        rs.pop(0)
+    while rs and not rs[-1][1].strip():
+        rs.pop()
+    if rs:
+        rs[0] = (rs[0][0], rs[0][1].lstrip())
+        rs[-1] = (rs[-1][0], rs[-1][1].rstrip())
+    return [(bold_rpr(r), t) for r, t in rs]
+
+
 def full_date(dt):
     d, m, y = dt.split('/')
     return '%02d/%02d/%s' % (int(d), int(m), y if len(y) == 4 else '20' + y)
 
 
 def condense(runs):
-    """Renvoie (runs condensés, nb relances, date dernière relance) ou None si rien à condenser."""
+    """Structure toute observation : sujet initial en gras, puis « → Au JJ/MM/AAAA : … » et
+    « → Relancé N fois, dernière le … ». Renvoie (runs, nb relances, date dernière relance)."""
     text = ''.join(t for _, t in runs)
     segs = [(m.start(), m.end(), m.group(1)) for m in AU.finditer(text)]
-    if not segs:
+    if not text.strip():
         return None
+    if not segs:                                   # observation sans historique : sujet seul, en gras
+        return head_runs(runs, 0, len(text)), 0, None
     pieces = []
     for k, (st, en, dt) in enumerate(segs):
         stop = segs[k + 1][0] if k + 1 < len(segs) else len(text)
@@ -258,13 +299,10 @@ def condense(runs):
     head_end = segs[0][0]
     head = text[:head_end].strip()
     head_pos = 0
-    if not head:
-        st, dt, body = pieces.pop(0)
-        head, head_pos = ('Au %s %s' % (dt, body)).strip(), st
-    subst = [p for p in pieces if p[2] and not BARE.match(p[2])]
+    if not head:                                   # texte qui commence par « Au JJ/MM/AAAA »
+        head_end = segs[1][0] if len(segs) > 1 else len(text)
+        pieces.pop(0)
     bare = [p for p in pieces if p[2] and BARE.match(p[2])]
-    if len(subst) <= 2 and len(bare) < 2:
-        return None
     # Seules les relances postérieures à la dernière remarque sont affichées
     # (« Relancé N fois, dernière le … ») : le compteur repart de 0 à chaque remarque.
     events = []                                   # ('S', piece) ou ('R', [pieces])
@@ -284,19 +322,18 @@ def condense(runs):
     last_s = s_idx[-1] if s_idx else -1
     shown = [e for i, e in enumerate(events[start:], start) if e[0] == 'S' or i > last_s]
     omitted = [e for e in events[:start] if e[0] == 'S']
-    out = [(rpr_at(runs, head_pos), head)]
+    out = head_runs(runs, 0, head_end)
     if omitted:
         n = len(omitted)
-        out.append((rpr_at(runs, omitted[0][1][0]),
-                    '\n[...]'))
+        out.append((plain_rpr(rpr_at(runs, omitted[0][1][0])), '\n[...]'))
     for kind, e in shown:
         if kind == 'S':
             st, dt, body = e
-            out.append((rpr_at(runs, st), '\n→ Au %s : %s' % (full_date(dt), body)))
+            out.append((plain_rpr(rpr_at(runs, st)), '\n→ Au %s : %s' % (full_date(dt), body)))
         else:
             last = e[-1]
-            out.append((rpr_at(runs, last[0]), '\n→ Relancé %d fois, dernière le %s' % (len(e), full_date(last[1]))))
-    # rPr sans gras forcé : on garde celui de la source
+            out.append((plain_rpr(rpr_at(runs, last[0])), '\n→ Relancé %d fois, dernière le %s' % (len(e), full_date(last[1]))))
+    # Sujet initial en gras ; lignes suivantes sans gras, couleurs de la source
     return out, len(bare), bare[-1][1] if bare else None
 
 
