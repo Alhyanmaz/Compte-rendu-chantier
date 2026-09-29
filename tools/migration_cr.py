@@ -1103,6 +1103,8 @@ def add_name(name, text, local=None, hidden=False):
 for sh in MIGR_SHEETS:
     ws = b.ws(sh)
     tabs = info[(sh, '_tables')]
+    if sh == 'Modele_lot':        # onglet masqué : pas de zone d'impression (LibreOffice l'imprimerait)
+        continue
     last = max(t['new_rows'][-1] for t in tabs if t.get('new_rows'))      # fin du dernier tableau (pas de pages vides)
     add_name('_xlnm.Print_Area', "'%s'!$A$1:$E$%d" % (sh, last), sheet_names.index(sh))
     if sh in LOT_SHEETS:
