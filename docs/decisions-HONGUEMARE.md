@@ -26,14 +26,18 @@ Registre des arbitrages de José Mazzarese. Il fait foi sur `proposition-optimis
 | CREACEPT (BET cuisine) | **Supprimer** la section de MOE-MOA. |
 | SIEGE 27 | **Créer** une section dans MOE-MOA. |
 | Économiste | **Garder** la section, même vide. |
-| Doublons existants | **Surligner en bleu** ; masquage manuel par José. |
+| Doublons existants | **Surligner en bleu** (remplissage) ; masquage manuel par José. |
+| Nouveaux ajouts | **Pas de bleu** : ils sont déjà validés dans l'Excel de résumé routé. |
+| PM | **Devient un statut de FAIT LE** : ligne conservée et grisée, jamais masquée. POUR LE peut garder une vraie date, ou rester vide. Un statut actif (Relance, URGENT, En attente) remplace PM. |
+| Résumé routé | **Excel, une seule feuille**, ordonnée comme le CR ; les points `[?]` sont bloquants. |
+| Sous-sections | Saut de page avant chaque ÉTUDES / TRAVAUX, recalculé à chaque CR (validé en connaissance du surcroît de pages). |
+| CREACEPT | Lignes de la section supprimées ; suppression signalée dans le rapport. |
+| SIEGE 27 | Code `SIE-`, section placée après celle du maître d'ouvrage. |
 | Page de garde | **Formules** (titre et prochaine réunion calculés depuis la date du CR). |
 | Lignes vides | **2 lignes vides** en fin de sous-section. Ajout de lignes autorisé si besoin. |
 | Mise en page | Chaque sous-section (ÉTUDES / TRAVAUX) **commence en haut d'une page**. |
 
 ## En attente
 
-- PM : reste en POUR LE, ou passe en FAIT LE ? (proposition de José, discussion en cours).
-- Support du résumé routé : Excel ou .docx.
-- Couleur de surlignage des doublons, distincte du bleu de relecture.
+- Ligne PM avec une date en POUR LE dépassée : relance automatique, ou non ?
 - « Onglet Synthèse » : José redemande son contenu dans la discussion claude.ai.
