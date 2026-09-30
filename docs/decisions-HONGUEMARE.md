@@ -146,8 +146,16 @@ Remplace le tableau de routage (deux relectures jugées trop longues). Détail e
 | Onglet « Non routé » | Créé à l'intégration, **non imprimé**, **vidé et masqué** au remoulinage (demande de José, 30/09/2026). |
 | Cycle | Notes + audio → CR à relire → corrections de José dans Excel → remoulinage (`relire_cr.py`) → édition finale. |
 
+## Numérotation et skill V3 (30/09/2026)
+
+| Sujet | Décision |
+|---|---|
+| Colonne N° | **Gardée et imprimée** (option A) malgré la méthode par notes : clé du remoulinage, de « Points à traiter » et du suivi des retards ; référence commune avec les entreprises et l'AMO. |
+| Skill V3 | `skill/compte-rendu-chantier-v3/` (scripts recopiés depuis `tools/` par `tools/sync_skill.sh`), paquet `compte-rendu-chantier-v3.skill`. Remplace V1 et V2 pour les classeurs au nouveau format ; V1 / V2 restent pour les classeurs à l'ancien format (ex. DUCLAIR_MIT). |
+| Hauteurs sans LibreOffice | Estimation par les métriques de la police (projet claude.ai) : jamais moins de lignes que LibreOffice sur le CRC-16 (193 / 216 identiques, 23 avec 1 ou 2 lignes de plus). |
+
 ## En attente
 
 - Validation du CRC-16 par José.
-- Skill V3 (le gabarit de résumé routé est abandonné au profit des notes de cellule).
+- Installation du skill V3 par José, puis premier essai réel depuis Cowork (le gabarit de résumé routé est abandonné au profit des notes de cellule).
 - Premier essai réel : un CR annoté dans Excel (les notes de test ont été posées par script, pas par Excel).
