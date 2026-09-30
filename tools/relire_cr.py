@@ -16,7 +16,9 @@ Ce que fait le script (docs/decisions-HONGUEMARE.md, « Mode relecture ») :
 - ligne passée en PM / soldée : texte gris, sauf l'ajout du jour ; compteur « sans réponse depuis » mis à jour ;
 - ligne nouvelle sans N° (ligne de réserve remplie) : N° attribué, style du tableau, SECTION, formule
   JOURS RETARD, texte en rouge, ABORDÉ LE = date du CR s'il est vide ;
-- Retard : DATE RETARD et ligne « → En retard depuis le … » ; lignes vides et sauts de page remis à jour.
+- Retard : DATE RETARD et ligne « → En retard depuis le … » ; lignes vides et sauts de page remis à jour ;
+- édition finale : fonds roses retirés (un [?] laissé tel quel est signalé), colonne ROUTAGE vidée,
+  onglet « Non routé » masqué.
 """
 import copy
 import datetime
@@ -142,7 +144,9 @@ for sh in SHEETS:
                 src = rows[tmpl].find(N + 'c[@r="%s%d"]' % (col, tmpl))
                 if src is not None and src.get('s'):
                     cell(row, col).set('s', src.get('s'))
-            set_si(cA, si_new([(_rpr_from_font(b._font_of(cA.get('s'))), num)]))
+            rpr_a = _rpr_from_font(b._font_of(cA.get('s')))
+            _set_color(rpr_a, BLACK)
+            set_si(cA, si_new([(rpr_a, num)]))
             restyle(cA, color=BLACK)
             runs = K.runs_of(cB) or K.runs_of(cF)
             for rp, _ in runs:
@@ -236,8 +240,23 @@ for sh in SHEETS:
         elif K.color_of(_rpr_from_font(b._font_of(cE.get('s')))) != RED and not any(
                 K.color_of(rp) == RED for rp, _ in K.runs_of(cE)):
             color_cell(cE, GREY if (number_of(cE) is not None or e_now == 'PM') else RED)
+    # ---------------------------------------------------------- édition finale : rose retiré, ROUTAGE vidée
+    rows, tabs, info = model(sh)
+    for r, row in rows.items():
+        roses = {fill_of(c) for c in row if c.get('r')[0] in 'ABCDE' and c.get('s')} & ROSES
+        if roses:
+            it = info.get(r, {})
+            if ROSE_DOUTE in roses and it.get('kind') == 'obs' and it['num'] not in {m[1] for m in report['modifiees'] if m[0] == sh}:
+                report['alertes'].append('%s %s : point [?] laissé tel quel, considéré comme validé' % (sh, it['num']))
+            for c in row:
+                if c.get('r')[0] in 'ABCDE' and c.get('s') and fill_of(c) in ROSES:
+                    set_fill(c, None)
+        cJ = row.find(N + 'c[@r="%s%d"]' % (ROUT_COL, r))
+        if cJ is not None:
+            clear(cJ)
     finir_onglet(sh)
 
+etat_non_route(False)
 maj_referentiel(next_num)
 terminer(OUT)
 json.dump(report, open(REPORT, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)

@@ -5,8 +5,10 @@ Chaîne de production d'une copie migrée (voir `docs/decisions-HONGUEMARE.md`) 
 1. `python migration_cr.py SOURCE.xlsx ETAPE1.xlsx rapport.json` : structure, N°, texte, statuts, MFC, onglets masqués.
 2. `python ajuster_hauteurs.py ETAPE1.xlsx FINAL.xlsx` : hauteurs de ligne pour que tout le texte soit visible dans Excel.
 
-Chaîne hebdomadaire (un CR au nouveau format + le résumé routé validé par José) :
+Chaîne hebdomadaire (CR précédent annoté par José en réunion + transcription audio, voir `docs/memo-notes.md`) :
 
+0. `python lire_notes.py CR_ANNOTE.xlsx notes.json` : liste des notes avec ce qu'elles désignent ; Claude rédige
+   OPERATIONS.json (notes reformulées à l'appui de l'audio, champs `note`, `source`, `routage`, `doute`, `non_route`).
 1. `python integrer_cr.py CR_PRECEDENT.xlsx OPERATIONS.json ETAPE1.xlsx rapport.json` : page de garde, masquage des
    lignes soldées au CR précédent, remise en noir du rouge et du gris, mises à jour (« Au JJ/MM/AAAA … » en rouge dans
    HISTORIQUE), nouvelles lignes (N° suivant, bordures du classeur, insertion de lignes si la réserve manque),

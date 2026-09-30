@@ -119,6 +119,9 @@ def text_of(c):
         return ''
     if c.get('t') == 's':
         return ''.join(b.si[int(c.find(N + 'v').text)].itertext())
+    if c.get('t') == 'inlineStr':
+        i = c.find(N + 'is')
+        return ''.join(i.itertext()) if i is not None else ''
     if c.get('t') == 'str':
         v = c.find(N + 'v')
         return v.text or '' if v is not None else ''
@@ -128,10 +131,10 @@ def text_of(c):
 
 def runs_of(c):
     base = b._font_of(c.get('s'))
-    if c.get('t') != 's':
+    if c.get('t') not in ('s', 'inlineStr'):
         t = text_of(c)
         return [(_rpr_from_font(base), t)] if t else []
-    si = b.si[int(c.find(N + 'v').text)]
+    si = c.find(N + 'is') if c.get('t') == 'inlineStr' else b.si[int(c.find(N + 'v').text)]
     rs = si.findall(N + 'r')
     if not rs:
         t = si.find(N + 't')
@@ -239,6 +242,8 @@ def obs_sheets():
 
 
 def resolve(base_part, target):
+    if target.startswith('/'):                       # cible absolue (fichiers réécrits par d'autres outils)
+        return target.lstrip('/')
     d = base_part.rsplit('/', 1)[0]
     out = []
     for x in (d + '/' + target).split('/'):
@@ -413,3 +418,168 @@ def statut_canonique(v):
     if t.upper().startswith('EN ATTENTE '):
         return 'En attente ' + t[11:].upper()
     return t
+
+
+# ------------------------------------------------------------------ relecture : fond rose, colonne ROUTAGE, onglet « Non routé »
+# (décisions du 30/09/2026 : José prend des notes de cellule en réunion ; Claude les reformule à l'appui de l'audio)
+ROSE = 'FFFADADD'          # point venu de la transcription seule (sans note de José)
+ROSE_DOUTE = 'FFF4A6C0'    # [?] : hypothèse de Claude, à trancher par José
+ROSES = {ROSE, ROSE_DOUTE}
+ROUT_COL = 'J'
+NON_ROUTE = 'Non routé'
+_fx = {}
+
+
+def fill_of(c):
+    xf = b.styles.find(N + 'cellXfs')[int(c.get('s', '0'))]
+    f = b.styles.find(N + 'fills')[int(xf.get('fillId', 0))]
+    fg = f.find('.//' + N + 'fgColor')
+    return fg.get('rgb') if fg is not None else None
+
+
+def set_fill(c, rgb):
+    """Fond uni rgb (None = aucun fond), sur un clone du style de la cellule."""
+    key = (c.get('s', '0'), rgb)
+    if key not in _fx:
+        st = b.styles
+        fills, xfs = st.find(N + 'fills'), st.find(N + 'cellXfs')
+        xf = copy.deepcopy(xfs[int(c.get('s', '0'))])
+        if rgb is None:
+            xf.set('fillId', '0')
+        else:
+            f = etree.SubElement(fills, N + 'fill')
+            pf = etree.SubElement(f, N + 'patternFill', patternType='solid')
+            etree.SubElement(pf, N + 'fgColor', rgb=rgb)
+            etree.SubElement(pf, N + 'bgColor', indexed='64')
+            fills.set('count', str(len(fills)))
+            xf.set('fillId', str(len(fills) - 1))
+        xf.set('applyFill', '1')
+        xfs.append(xf)
+        xfs.set('count', str(len(xfs)))
+        b.touch('xl/styles.xml')
+        _fx[key] = str(len(xfs) - 1)
+    c.set('s', _fx[key])
+
+
+def colonne_routage(sh, width=55):
+    """Colonne J « ROUTAGE » : visible à l'écran, hors zone d'impression (A:E), texte renvoyé à la ligne."""
+    ws = b.ws(sh)
+    cols = ws.find(N + 'cols')
+    if cols is None:
+        cols = etree.Element(N + 'cols')
+        ws.find(N + 'sheetData').addprevious(cols)
+    k = col_index(ROUT_COL + '1')
+    if not any(int(c.get('min')) <= k <= int(c.get('max')) for c in cols):
+        new = etree.Element(N + 'col', min=str(k), max=str(k), width=str(width), customWidth='1')
+        after = [c for c in cols if int(c.get('min')) < k]
+        (after[-1].addnext(new) if after else cols.insert(0, new))
+    rows, tabs, info = model(sh)
+    for t in tabs:                                   # titre sur chaque ligne d'en-tête de tableau
+        row = rows.get(t['r0'])
+        if row is not None:
+            hF, hJ = cell(row, 'F'), cell(row, ROUT_COL)
+            if hF.get('s'):
+                hJ.set('s', hF.get('s'))
+            set_si(hJ, si_new([(None, 'ROUTAGE (relecture, non imprimé)')]))
+    b.touch(b.sheets[sh])
+
+
+def ecrire_routage(row, texte, style_from='F'):
+    c = cell(row, ROUT_COL)
+    src = cell(row, style_from)
+    if src.get('s'):
+        c.set('s', src.get('s'))
+    rpr = plain_rpr(_rpr_from_font(b._font_of(c.get('s'))))
+    _set_color(rpr, BLACK)
+    set_si(c, si_new([(rpr, texte)]))
+
+
+# ---- création d'onglet (reprise de migration_cr.py)
+CTNS = 'http://schemas.openxmlformats.org/package/2006/content-types'
+PNS = 'http://schemas.openxmlformats.org/package/2006/relationships'
+RNS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+
+
+def add_part(name, data_bytes, content_type):
+    import zipfile
+    b.data[name] = data_bytes
+    zi = zipfile.ZipInfo(name, date_time=(2026, 9, 30, 12, 0, 0))
+    zi.compress_type = zipfile.ZIP_DEFLATED
+    b.infos.append(zi)
+    ct = b.xml('[Content_Types].xml')
+    etree.SubElement(ct, '{%s}Override' % CTNS, PartName='/' + name, ContentType=content_type)
+    b.touch('[Content_Types].xml')
+
+
+def add_rel(part_rels, rtype, target):
+    root = b.xml(part_rels)
+    ids = {r.get('Id') for r in root}
+    k = 1
+    while 'rId%d' % k in ids:
+        k += 1
+    etree.SubElement(root, '{%s}Relationship' % PNS, Id='rId%d' % k, Type=rtype, Target=target)
+    b.touch(part_rels)
+    return 'rId%d' % k
+
+
+def onglet_non_route(items, visible=True):
+    """Onglet « Non routé » (jamais imprimé) : passages de la transcription écartés par Claude, avec la raison.
+    Créé au besoin (en dernier : les index des zones d'impression ne bougent pas), contenu remplacé à chaque CR."""
+    wbx = b.xml('xl/workbook.xml')
+    sheets = wbx.find(N + 'sheets')
+    ref = b.ws('Référentiel') if 'Référentiel' in b.sheets else None
+
+    def style(r, col):
+        if ref is None:
+            return None
+        for row in ref.find(N + 'sheetData'):
+            if row.get('r') == str(r):
+                c = row.find(N + 'c[@r="%s%d"]' % (col, r))
+                return c.get('s') if c is not None else None
+    st_title, st_hdr, st_wrap = style(1, 'A'), style(4, 'A'), style(5, 'D')
+    data = [('A', 1, 'NON ROUTÉ — passages de la transcription non repris au CR du %s (onglet non imprimé)' % DSTR, st_title),
+            ('A', 3, 'Passage de la transcription', st_hdr), ('B', 3, 'Raison', st_hdr)]
+    for i, it in enumerate(items or [{'extrait': '—', 'raison': 'Aucun passage écarté.'}]):
+        data.append(('A', 4 + i, it.get('extrait', ''), st_wrap))
+        data.append(('B', 4 + i, it.get('raison', ''), st_wrap))
+    if NON_ROUTE not in b.sheets:
+        nums = [int(re.sub(r'\D', '', n)) for n in b.data if re.match(r'xl/worksheets/sheet\d+\.xml$', n)]
+        part = 'xl/worksheets/sheet%d.xml' % (max(nums) + 1)
+        xml = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="%s" xmlns:r="%s">'
+               '<sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/>'
+               '<cols><col min="1" max="1" width="62" customWidth="1"/><col min="2" max="2" width="38" customWidth="1"/></cols>'
+               '<sheetData/><pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>'
+               '</worksheet>' % (N[1:-1], RNS))
+        add_part(part, xml.encode('utf-8'),
+                 'application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml')
+        rid = add_rel('xl/_rels/workbook.xml.rels', RNS + '/worksheet', 'worksheets/' + part.rsplit('/', 1)[1])
+        sid = max(int(s.get('sheetId')) for s in sheets) + 1
+        e = etree.SubElement(sheets, N + 'sheet', name=NON_ROUTE, sheetId=str(sid))
+        e.set('{%s}id' % RNS, rid)
+        b.sheets[NON_ROUTE] = part
+    ws = b.ws(NON_ROUTE)
+    sd = ws.find(N + 'sheetData')
+    for row in list(sd):
+        sd.remove(row)
+    rows = {}
+    for col, r, v, s in data:
+        row = rows.get(r)
+        if row is None:
+            row = rows[r] = etree.SubElement(sd, N + 'row', r=str(r))
+        c = etree.SubElement(row, N + 'c', r='%s%d' % (col, r))
+        if s:
+            c.set('s', s)
+        set_si(c, si_new([(None, v)]))
+    etat_non_route(visible)
+    b.touch(b.sheets[NON_ROUTE])
+    b.touch('xl/workbook.xml')
+
+
+def etat_non_route(visible):
+    for s in b.xml('xl/workbook.xml').find(N + 'sheets'):
+        if s.get('name') == NON_ROUTE:
+            if visible:
+                s.attrib.pop('state', None)
+            else:
+                s.set('state', 'hidden')
+            b.touch('xl/workbook.xml')

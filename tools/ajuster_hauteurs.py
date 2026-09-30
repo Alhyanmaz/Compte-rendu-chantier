@@ -68,6 +68,9 @@ def main(src, dst):
                 d = re.sub(r'<row [^>]*>', lambda m: m.group(0) if 'hidden="1"' in m.group(0) else
                            re.sub(r'\scustomHeight="[^"]*"', '', re.sub(r'\sht="[^"]*"', '', m.group(0))),
                            d.decode('utf-8')).encode('utf-8')
+                # seules les colonnes imprimées (A:E) comptent : HISTORIQUE (F) et ROUTAGE (J) sont retirées de la copie
+                # de mesure (sinon un historique long gonfle la hauteur imprimée — défaut constaté le 30/09/2026)
+                d = re.sub(rb'<c r="(?:[F-Z]|[A-Z]{2,})\d+"(?:[^>]*/>|[^>]*>.*?</c>)', b'', d, flags=re.S)
                 # mesure prudente : colonnes B à E rétrécies de 14 % (le rendu Excel coupe un peu plus tôt que LibreOffice)
                 d = re.sub(rb'<col min="([2-5])" max="([2-5])" width="([0-9.]+)"',
                            lambda m: b'<col min="%s" max="%s" width="%.3f"' % (m.group(1), m.group(2), float(m.group(3)) * SHRINK), d)

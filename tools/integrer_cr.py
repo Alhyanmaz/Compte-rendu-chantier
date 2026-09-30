@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Intégration hebdomadaire d'un résumé routé dans un CR au nouveau format (colonne N°, HISTORIQUE…).
+"""Intégration hebdomadaire dans un CR au nouveau format (colonne N°, HISTORIQUE…).
+
+Méthode (30/09/2026) : José pose des notes de cellule sur le CR précédent pendant la réunion ; Claude les reformule
+à l'appui de la transcription audio et écrit OPERATIONS.json ; ce script l'applique. Le CR produit est relu et
+corrigé par José dans Excel, puis repris par relire_cr.py avant l'édition finale.
 
 Usage : python integrer_cr.py CR_PRECEDENT.xlsx OPERATIONS.json CR_NOUVEAU.xlsx RAPPORT.json
 puis    python ajuster_hauteurs.py CR_NOUVEAU.xlsx CR_FINAL.xlsx
@@ -11,8 +15,15 @@ OPERATIONS.json :
     {"type": "maj", "num": "02-066", "texte": "…", "pour_le": "2026-10-02" | "+7", "fait_le": "URGENT" | "2026-09-22"},
     {"type": "nouvelle", "onglet": "02 -GROS OEUVRE", "code": "02", "section": "ÉTUDES",
      "texte": "…", "pour_le": "+7" | "2026-10-06" | null, "fait_le": "PM" | null}
-  ]
+  ],
+  "non_route": [{"extrait": "passage de la transcription écarté", "raison": "…", "note": "Onglet!B12" | null}]
 }
+Champs facultatifs de chaque opération :
+  "note"    : "Onglet!B12", note de cellule de José traitée par l'opération (supprimée du classeur) ;
+  "source"  : "note" (défaut) | "transcription" (point sans note de José : fond rose) ;
+  "routage" : texte de la colonne ROUTAGE (note d'origine, extrait de l'audio, choix de Claude) ;
+  "doute"   : question [?] à trancher par José (fond rose soutenu, écrite dans ROUTAGE).
+Toute note de cellule d'un onglet d'observations doit être citée par une opération ou par « non_route ».
 
 Règles appliquées : docs/decisions-HONGUEMARE.md. Édition XML chirurgicale (cr_xml.py) ; openpyxl en
 lecture seule. Le texte affiché (OBSERVATIONS) est recalculé depuis HISTORIQUE, qui fait foi.
@@ -129,6 +140,32 @@ for sh in SHEETS:
 ops = spec['operations']
 touched = {o['num'] for o in ops if o['type'] == 'maj'}
 
+# ================================================================== 1 bis. notes de cellule : toutes traitées, puis supprimées
+# (avant toute insertion de lignes : les notes ne suivent pas les décalages)
+cited = {x['note'] for x in ops + spec.get('non_route', []) if x.get('note')}
+restantes = ['%s!%s' % (sh, ref) for sh in SHEETS for ref in b.notes(sh) if '%s!%s' % (sh, ref) not in cited]
+if restantes:
+    raise SystemExit('Notes de cellule non traitées (à citer dans une opération ou dans non_route) : %s' % restantes)
+for x in sorted(cited):
+    sh, ref = x.split('!', 1)
+    if ref not in b.notes(sh):
+        report['alertes'].append('Note citée introuvable : %s' % x)
+    b.delete_note(sh, ref)
+report['notes'] = sorted(cited)
+
+
+def marquer(row, o, defaut=None):
+    """Colonne ROUTAGE ; fond rose si le point vient de la seule transcription, rose soutenu si [?]."""
+    txt = o.get('routage') or defaut or ''
+    if o.get('doute'):
+        txt = (txt + '\n' if txt else '') + '[?] ' + o['doute']
+    if txt:
+        ecrire_routage(row, txt)
+    rose = ROSE_DOUTE if o.get('doute') else (ROSE if o.get('source') == 'transcription' else None)
+    if rose:
+        for col in 'ABCDE':
+            set_fill(cell(row, col), rose)
+
 # ================================================================== 2. place pour les lignes neuves (insertions)
 for sh in SHEETS:
     news = [o for o in ops if o['type'] == 'nouvelle' and o['onglet'] == sh]
@@ -175,6 +212,9 @@ for sh in SHEETS:
         row = rows[r]
         num = it['num']
         cA, cB, cC, cD, cE, cF = (cell(row, x) for x in 'ABCDEF')
+        cJ = row.find(N + 'c[@r="%s%d"]' % (ROUT_COL, r))
+        if cJ is not None and text_of(cJ):             # ROUTAGE d'un passage précédent (normalement vidé en relecture)
+            clear(cJ)
         e_txt = text_of(cE).strip()
         e_num = number_of(cE)
         closed = e_num is not None or e_txt.upper() in TERMINAUX
@@ -203,6 +243,7 @@ for sh in SHEETS:
                 clear(cE)
                 report['reouvertures'].append([sh, num])
             report['maj'].append([sh, num, add[:90]])
+            marquer(row, op)
         elif not it['hidden'] and not closed:
             # -- relance automatique (échéance atteinte ; jamais sur PM, En attente, En cours, Retard)
             up = e_txt.upper()
@@ -214,6 +255,8 @@ for sh in SHEETS:
                     write_fait_le(cE, 'Relance')
                     today.add('E')
                 report['relances_auto'].append([sh, num, up or '(vide)'])
+                ecrire_routage(row, 'Relance automatique : %s' % ('URGENT, relancé à chaque CR' if up == 'URGENT' else
+                                                                  'échéance du %s atteinte' % from_serial(pl).strftime('%d/%m/%Y')))
         if add:
             f_runs = runs_of(cF)
             base = copy.deepcopy(f_runs[-1][0]) if f_runs else _rpr_from_font(b._font_of(cF.get('s')))
@@ -284,7 +327,9 @@ for sh in SHEETS:
                 c.set('s', src.get('s'))
             clear(c)
         cA, cB, cC, cD, cE, cF, cH, cI = (cell(row, x) for x in 'ABCDEFHI')
-        set_si(cA, si_new([(_rpr_from_font(b._font_of(cA.get('s'))), num)]))
+        rpr_a = _rpr_from_font(b._font_of(cA.get('s')))
+        _set_color(rpr_a, BLACK)                   # N° toujours noir (le style d'une ligne de réserve peut être gris)
+        set_si(cA, si_new([(rpr_a, num)]))
         restyle(cA, color=BLACK)
         rpr = plain_rpr(_rpr_from_font(b._font_of(cB.get('s'))))
         _set_color(rpr, RED)
@@ -303,10 +348,13 @@ for sh in SHEETS:
         set_si(cH, si_new([(None, o.get('section') or code)]))
         jours_formula(cI, r)
         report['nouvelles'].append([sh, num, o.get('section') or code, o['texte'][:90]])
+        marquer(row, o)
+    colonne_routage(sh)
     finir_onglet(sh)
 
 # ================================================================== 4. Référentiel : prochain N°, enregistrement
 maj_referentiel(next_num)
+onglet_non_route(spec.get('non_route', []), visible=True)
 terminer(OUT)
 json.dump(report, open(REPORT, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
 print('OK', OUT, {k: len(v) for k, v in report.items()})

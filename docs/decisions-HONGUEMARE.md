@@ -132,7 +132,22 @@ Limite : une modification de mise en forme seule (sans changement de contenu) n'
 
 Appliqué par l'intégration et la relecture : DATE RETARD (G) = date du CR à la pose du statut ; ligne imprimée en rouge « → En retard depuis le JJ/MM/AAAA : N jours » (sans compteur le premier jour, comme « sans réponse depuis ») ; ligne retirée quand le statut est levé.
 
+## Nouvelle méthode d'intégration (30/09/2026)
+
+Remplace le tableau de routage (deux relectures jugées trop longues). Détail et conventions : `docs/memo-notes.md`.
+
+| Sujet | Décision |
+|---|---|
+| Entrées | **Notes de cellule** de José sur le CR précédent (prises en réunion, moins précises qu'avant) + **transcription audio**. |
+| Rôle des sources | Les notes **font foi** (ligne, statut, échéance) ; l'audio sert à **reformuler** les notes (toujours) et à repérer les points non notés. Désaccord : la note l'emporte, écart signalé. |
+| Notes | Toutes traitées puis supprimées ; une note non citée **bloque** l'intégration. Note sur ÉTUDES / TRAVAUX, sur le titre ou l'en-tête d'un tableau = nouvelle(s) ligne(s) (un paragraphe par ligne). |
+| Colonne ROUTAGE | Colonne J, visible à l'écran, **non imprimée**, remplie pour **toutes** les observations touchées ; vidée au remoulinage. |
+| Couleur | **Rose** (et non lavande) : `FFFADADD` pour un point venu de l'audio seul, `FFF4A6C0` pour un [?]. Retiré au remoulinage. |
+| Onglet « Non routé » | Créé à l'intégration, **non imprimé**, masqué au remoulinage. |
+| Cycle | Notes + audio → CR à relire → corrections de José dans Excel → remoulinage (`relire_cr.py`) → édition finale. |
+
 ## En attente
 
 - Validation du CRC-16 par José.
-- Gabarit du résumé routé, puis skill V3.
+- Skill V3 (le gabarit de résumé routé est abandonné au profit des notes de cellule).
+- Premier essai réel : un CR annoté dans Excel (les notes de test ont été posées par script, pas par Excel).
