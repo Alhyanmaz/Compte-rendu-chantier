@@ -180,12 +180,12 @@ def from_serial(n):
 
 def status_runs(c, value):
     rpr = plain_rpr(_rpr_from_font(b._font_of(c.get('s'))))
-    _set_color(rpr, GREY if value.upper() == 'PM' else RED)
+    _set_color(rpr, RED)                       # écrit ce jour : rouge, PM compris (gris au CR suivant)
     return [(rpr, value)]
 
 
 def write_fait_le(c, value):
-    """Statut en texte enrichi rouge (PM gris) ; date en rouge (clôture de la semaine)."""
+    """Statut en texte enrichi rouge ; date en rouge (clôture de la semaine)."""
     if re.match(r'^\d{4}-\d{2}-\d{2}$', value):
         set_num(c, serial(datetime.datetime.strptime(value, '%Y-%m-%d')))
         restyle(c, color=RED)
@@ -201,6 +201,40 @@ def write_pour_le(c, value, row_r):
     else:
         set_num(c, serial(datetime.datetime.strptime(value, '%Y-%m-%d')))
     restyle(c, color=RED)
+
+
+NEUTRES = {RED, BLACK, 'GREY', 'auto', 'theme1'}   # couleurs gérées par le script ; les autres (choix de José) sont gardées
+
+
+def recolor_runs(runs, color, keep_red=False):
+    for rp, _ in runs:
+        c = color_of(rp)
+        if c in NEUTRES and not (keep_red and c == RED):
+            _set_color(rp, color)
+    return runs
+
+
+def color_cell(c, color):
+    """Couleur de police d'une cellule (date, N°, statut) : style de cellule, et runs s'il y en a."""
+    if c is None:
+        return
+    if color_of(_rpr_from_font(b._font_of(c.get('s')))) in NEUTRES:
+        restyle(c, color=color)
+    if c.get('t') == 's':
+        rs = runs_of(c)
+        if any(color_of(rp) in NEUTRES and color_of(rp) != color_of(_color_probe(color)) for rp, _ in rs):
+            set_si(c, si_new(recolor_runs(rs, color)))
+
+
+def _color_probe(color):
+    e = etree.Element(N + 'rPr')
+    _set_color(e, color)
+    return e
+
+
+def is_grey_status(c):
+    e = text_of(c).strip().upper()
+    return number_of(c) is not None or e == 'PM' or e in TERMINAUX
 
 
 # ------------------------------------------------------------------ lecture du modèle
@@ -323,6 +357,8 @@ def insert_rows(sh, p, n, tmpl_r):
         mc.set('ref', shift_txt(mc.get('ref'), p, n))
     for cf in ws.findall(N + 'conditionalFormatting'):
         cf.set('sqref', shift_txt(cf.get('sqref'), p, n))
+        for fo in cf.iter(N + 'formula'):             # la formule suit la 1re cellule de sqref (bug du CRC-16 v1)
+            fo.text = shift_txt(fo.text, p, n)
     for dv in ws.iter(N + 'dataValidation'):
         dv.set('sqref', shift_txt(dv.get('sqref'), p, n))
     rb = ws.find(N + 'rowBreaks')
@@ -355,6 +391,18 @@ for row in pg.find(N + 'sheetData'):
 b.touch(b.sheets['Page de garde'])
 
 SHEETS = obs_sheets()
+# MFC de police grise retirée (30/09/2026) : elle écrasait la typo manuelle de José et le rouge des dates du jour.
+# Le gris des lignes PM / soldées est écrit dans les cellules. Les fonds jaune (URGENT) et orange (Retard) restent.
+for sh in SHEETS:
+    ws = b.ws(sh)
+    for cf in ws.findall(N + 'conditionalFormatting'):
+        for rule in cf.findall(N + 'cfRule'):
+            fo = rule.find(N + 'formula')
+            if fo is not None and fo.text and fo.text.startswith('OR($E') and '"PM"' in fo.text:
+                cf.remove(rule)
+        if not cf.findall(N + 'cfRule'):
+            ws.remove(cf)
+    b.touch(b.sheets[sh])
 ops = spec['operations']
 touched = {o['num'] for o in ops if o['type'] == 'maj'}
 
@@ -403,7 +451,7 @@ for sh in SHEETS:
             continue
         row = rows[r]
         num = it['num']
-        cB, cC, cD, cE, cF = (cell(row, x) for x in 'BCDEF')
+        cA, cB, cC, cD, cE, cF = (cell(row, x) for x in 'ABCDEF')
         e_txt = text_of(cE).strip()
         e_num = number_of(cE)
         closed = e_num is not None or e_txt.upper() in TERMINAUX
@@ -412,29 +460,22 @@ for sh in SHEETS:
             row.set('hidden', '1')
             report['masquees'].append([sh, num, from_serial(e_num).strftime('%d/%m/%Y') if e_num is not None else e_txt])
             continue
-        # -- rouge du passage précédent -> noir (HISTORIQUE, dates ABORDÉ / POUR LE)
-        # (le gris écrit dans le texte est aussi ramené au noir : c'est la MFC qui grise les lignes PM / soldées,
-        #  et une ligne « En attente » ne doit jamais être grise — règle V1 ; test MFC validé le 29/09/2026)
+        # -- rouge du passage précédent -> noir dans HISTORIQUE (non imprimé) ; le gris y est aussi ramené au noir
         f_runs = runs_of(cF)
         if any(color_of(rp) in (RED, 'GREY') for rp, _ in f_runs):
-            for rp, _ in f_runs:
-                if color_of(rp) in (RED, 'GREY'):
-                    _set_color(rp, BLACK)
-            set_si(cF, si_new(f_runs))
-        for c in (cC, cD):
-            if c.get('s') and color_of(_rpr_from_font(b._font_of(c.get('s')))) == RED:
-                restyle(c, color=BLACK)
-        if e_num is not None and color_of(_rpr_from_font(b._font_of(cE.get('s')))) == RED:
-            restyle(cE, color=BLACK)
+            set_si(cF, si_new(recolor_runs(f_runs, BLACK)))
         # -- mise à jour du jour
         op = next((o for o in ops if o['type'] == 'maj' and o['num'] == num), None)
         add = None
+        today = set()                                  # colonnes écrites ce jour (restent rouges)
         if op:
             add = op['texte'].strip()
             if op.get('pour_le'):
                 write_pour_le(cD, op['pour_le'], r)
+                today.add('D')
             if op.get('fait_le'):
                 write_fait_le(cE, op['fait_le'])
+                today.add('E')
             elif e_num is not None:                    # réouverture (règle V1) : point annoté alors qu'il était soldé
                 clear(cE)
                 report['reouvertures'].append([sh, num])
@@ -448,6 +489,7 @@ for sh in SHEETS:
                 add = 'Relance'
                 if up == '':
                     write_fait_le(cE, 'Relance')
+                    today.add('E')
                 report['relances_auto'].append([sh, num, up or '(vide)'])
         if add:
             f_runs = runs_of(cF)
@@ -458,21 +500,45 @@ for sh in SHEETS:
                 f_runs[-1] = (f_runs[-1][0], f_runs[-1][1].rstrip() + '.')     # le point prend la couleur du texte précédent
             f_runs.append((base, ' Au %s %s' % (DSTR, add)))
             set_si(cF, si_new(f_runs))
-        # -- texte affiché recalculé depuis HISTORIQUE (règle A, « sans réponse depuis », objet d'attente conservé)
-        old_b = runs_of(cB)
-        objet = [(rp, t) for rp, t in old_b if t.startswith('\n→ En attente :')]
-        ab = number_of(cC)
+        # -- couleurs explicites (pas de MFC de police : José garde la main sur la typo) :
+        #    ajout du jour rouge ; ligne PM / soldée / sans objet grise ; sinon noir ; statut rouge (PM gris)
+        grey = is_grey_status(cE)
+        base_col = GREY if grey else BLACK
         e_now = text_of(cE).strip().upper()
         open_ = number_of(cE) is None and e_now not in TERMINAUX | {'PM'}
-        res = condense(runs_of(cF), from_serial(ab) if ab else None, open_, date_cr=DATE)
-        if res:
-            runs = res[0]
-            if objet and 'EN ATTENTE' in e_now:
-                for rp, _ in objet:
-                    if color_of(rp) in (RED, 'GREY'):
-                        _set_color(rp, BLACK)
-                runs += objet
+        old_b = runs_of(cB)
+        if add:
+            # texte affiché recalculé depuis HISTORIQUE (règle A, « sans réponse depuis », objet d'attente conservé)
+            objet = [(rp, t) for rp, t in old_b if t.startswith('\n→ En attente :')]
+            ab = number_of(cC)
+            res = condense(runs_of(cF), from_serial(ab) if ab else None, open_, date_cr=DATE)
+            if res:
+                runs = recolor_runs(res[0], base_col, keep_red=True)
+                if objet and 'EN ATTENTE' in e_now:
+                    runs += recolor_runs(objet, base_col)
+                set_si(cB, si_new(runs))
+        elif old_b:
+            # ligne non traitée ce jour : texte affiché conservé tel quel (corrections manuelles de José),
+            # seuls les couleurs et le compteur « sans réponse depuis » sont mis à jour
+            runs = recolor_runs(old_b, base_col)
+            m = next((i for i, (_, t) in enumerate(runs) if '→ Relancé' in t), None)
+            if m is not None and open_:
+                ab = number_of(cC)
+                res = condense(runs_of(cF), from_serial(ab) if ab else None, open_, date_cr=DATE)
+                rel = [t for _, t in (res[0] if res else []) if '→ Relancé' in t]
+                if rel:
+                    runs[m] = (runs[m][0], rel[-1])
             set_si(cB, si_new(runs))
+        color_cell(cA, base_col)
+        for col, c in (('C', cC), ('D', cD)):
+            color_cell(c, RED if col in today else base_col)
+        if 'E' not in today:
+            if number_of(cE) is not None:
+                color_cell(cE, GREY)
+            elif e_now == 'PM':
+                color_cell(cE, GREY)
+            elif e_now:
+                color_cell(cE, RED)
     # -- lignes neuves de cet onglet
     rows, tabs, info = model(sh)
     for o in [o for o in pending_new if o['onglet'] == sh]:

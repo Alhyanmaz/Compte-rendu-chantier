@@ -107,6 +107,11 @@ Ouverture sans réparation, onglet « Test MFC », aperçu avant impression, lis
 |---|---|
 | « sans réponse depuis N j » | **Absent le jour même** de la 1re relance (0 j) ; affiché à partir d'1 jour. |
 | Outil | `tools/integrer_cr.py` : intègre le routage (mises à jour et nouvelles lignes) dans le CR au nouveau format. |
+| Hauteur des lignes | **Plus de marge** : mesure sur colonnes rétrécies de 14 %, 13,2 pt par ligne de texte + 9 pt. |
+| Couleurs (retour de José sur le CRC-16) | Écrites **dans les cellules** par le script : ajout du jour en **rouge** (texte, dates C/D, date ou statut de FAIT LE, PM compris) ; ligne **PM / soldée / sans objet en gris** (N°, texte, dates) hors ajout du jour ; sinon **noir** ; statut de FAIT LE **rouge**, PM **gris** à partir du CR suivant. |
+| MFC de police grise | **Retirée** : elle écrasait la typo manuelle de José (et le rouge d'une date de clôture du jour). Seuls les fonds jaune (URGENT) et orange (Retard) restent en MFC. Conséquence : un PM saisi à la main dans la semaine ne grise la ligne qu'à l'intégration suivante. |
+| Texte des lignes non traitées | **Conservé tel quel** (corrections manuelles de José) ; seuls les couleurs et le compteur « sans réponse depuis » sont mis à jour. Le texte n'est recalculé depuis HISTORIQUE que sur les lignes mises à jour ou relancées. |
+| Bug corrigé | Après insertion de lignes, les formules de MFC n'étaient pas décalées (AMO-003 grisée à tort) ; les lignes insérées n'étaient pas ajustées en hauteur. |
 
 ## En attente
 
