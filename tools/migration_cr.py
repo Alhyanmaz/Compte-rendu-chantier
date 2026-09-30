@@ -250,7 +250,8 @@ def cell_in_row(row, col, s=None):
 # ------------------------------------------------------------------ texte : typos et condensation
 TYPO = re.compile(r'\b(\d{2})/(\d{2})(20\d{2})\b')
 TYPO5 = re.compile(r'\b(\d{2})/(\d{2})/(202)(\d)(\d)\b')   # « 08/09/20256 » -> 2026 (interprétation)
-AU = re.compile(r'(?:(?<=\s)|(?<=\.)|^)(?:[Aa]u|AU)\s+(\d{1,2}/\d{1,2}/(?:\d{4}|\d{2}))(?![\d])')
+# « Au » / « AU » seulement : un « au » minuscule est du texte (« visite au 20/07/2026 »), pas une mise à jour
+AU = re.compile(r'(?:(?<=\s)|(?<=\.)|^)(?:Au|AU)\s+(\d{1,2}/\d{1,2}/(?:\d{4}|\d{2}))(?![\d])')
 BARE = re.compile(r'^[\s.,;:!-]*(relance|urgent|rappel)[\s.,;:!-]*$', re.I)
 
 
