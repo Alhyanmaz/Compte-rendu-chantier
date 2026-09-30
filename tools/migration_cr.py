@@ -1244,7 +1244,8 @@ def build_sheet(cells, widths, extra_after_sheetdata=''):
     for (col, r), xml in cells.items():
         rows.setdefault(r, []).append((col_index(col), xml))
     sd = ''.join('<row r="%d">%s</row>' % (r, ''.join(x for _, x in sorted(v))) for r, v in sorted(rows.items()))
-    cols = ''.join('<col min="%d" max="%d" width="%s" customWidth="1"/>' % (col_index(c), col_index(c), w) for c, w in widths)
+    cols = ''.join('<col min="%d" max="%d" width="%s"%s customWidth="1"/>' % (col_index(w[0]), col_index(w[0]), w[1],
+                   (' style="%s"' % w[2]) if len(w) > 2 else '') for w in widths)
     return ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
             '<worksheet xmlns="%s" xmlns:r="%s"><sheetViews><sheetView workbookViewId="0"/></sheetViews>'
             '<sheetFormatPr defaultRowHeight="15"/><cols>%s</cols><sheetData>%s</sheetData>%s'
@@ -1378,21 +1379,16 @@ for k, (col0, title) in enumerate((('A', 'BLOC 1 — URGENT'), ('F', 'BLOC 2 —
         col = col_letter(ci0 + i)
         cells[(col, top + 1)] = c_xml('%s%d' % (col, top + 1), h, st_hdr)
     cells[(col0, top + 2)] = c_xml('%s%d' % (col0, top + 2), 'Coller ici la formule %d du rapport' % (k + 1), st_body)
-    for rr in range(top + 2, top + 202):          # format date (vide si 0) pour POUR LE / FAIT LE
-        for dc in (2, 3):
-            col = col_letter(ci0 + dc)
-            cells[(col, rr)] = c_xml('%s%d' % (col, rr), None, st_date)
 cells[('P', top)] = c_xml('P%d' % top, 'BLOC 4 — RETARDS (statut posé par José)', st_title)
 for i, h in enumerate(['N°', 'Observation (120 car.)', 'Section', 'En retard depuis', 'Jours calendaires']):
     col = col_letter(col_index('P') + i)
     cells[(col, top + 1)] = c_xml('%s%d' % (col, top + 1), h, st_hdr)
 cells[('P', top + 2)] = c_xml('P%d' % (top + 2), 'Coller ici la formule 4 du rapport', st_body)
-for rr in range(top + 2, top + 202):
-    cells[('S', rr)] = c_xml('S%d' % rr, None, st_date)
-add_sheet('Points à traiter', build_sheet(cells, [('A', 22), ('B', 60), ('C', 11), ('D', 18), ('F', 11), ('G', 60),
-                                                  ('H', 11), ('I', 18), ('K', 11), ('L', 60), ('M', 11), ('N', 18),
-                                                  ('P', 11), ('Q', 60), ('R', 12), ('S', 14), ('T', 12)]),
+add_sheet('Points à traiter', build_sheet(cells, [('A', 22), ('B', 60), ('C', 11, st_date), ('D', 18, st_date), ('F', 11), ('G', 60),
+                                                  ('H', 11, st_date), ('I', 18, st_date), ('K', 11), ('L', 60), ('M', 11, st_date),
+                                                  ('N', 18, st_date), ('P', 11), ('Q', 60), ('R', 12), ('S', 14, st_date), ('T', 12)]),
           state='hidden')
+# pas de zone d'impression : onglet masqué ; formats de date posés par colonne (plus de lignes pré-formatées = plus de pages blanches)
 report['points_a_traiter'] = dict(ligne_blocs=top + 2, tables=all_tabs)
 
 # ---- Test MFC (validé le 29/09/2026 : onglet retiré de la copie finale)
@@ -1445,6 +1441,35 @@ cf = ('<conditionalFormatting sqref="A4:E9"><cfRule type="expression" dxfId="%d"
       '</conditionalFormatting>' % (id_yel, id_grey))
 if ADD_TEST_MFC:
   add_sheet('Test MFC', build_sheet(cells, [('A', 9.6), ('B', 53), ('C', 11), ('D', 11), ('E', 16), ('F', 34)], cf))
+
+tstyles = b.styles.find(N + 'tableStyles')
+src_ts = [t for t in tstyles if t.get('name') == 'Style de tableau 1'][0]
+new_ts = copy.deepcopy(src_ts)
+for k in list(new_ts.attrib):
+    if k.endswith('}uid'):
+        new_ts.attrib.pop(k)
+new_ts.set('name', 'CR MOE-MOA sans rive')
+for el in new_ts:
+    if el.get('type') == 'wholeTable':
+        dxfs = b.styles.find(N + 'dxfs')
+        d = copy.deepcopy(dxfs[int(el.get('dxfId'))])
+        bd = d.find(N + 'border')
+        if bd is not None and bd.find(N + 'vertical') is not None:
+            bd.remove(bd.find(N + 'vertical'))
+        dxfs.append(d)
+        dxfs.set('count', str(len(dxfs)))
+        el.set('dxfId', str(len(dxfs) - 1))
+tstyles.append(new_ts)
+tstyles.set('count', str(len(tstyles)))
+b.touch('xl/styles.xml')
+for t in info[('MOE-MOA', '_tables')]:
+    if t.get('code') == 'BET.CUI':
+        continue
+    tx = b.xml(t['part'])
+    tsi = tx.find(N + 'tableStyleInfo')
+    if tsi is not None and tsi.get('name') == 'Style de tableau 1':
+        tsi.set('name', 'CR MOE-MOA sans rive')
+        b.touch(t['part'])
 
 wbx.find(N + 'calcPr').set('fullCalcOnLoad', '1')
 b.touch('xl/workbook.xml')

@@ -27,6 +27,7 @@ import openpyxl
 
 LO_LINE, LO_PAD = 10.45, 1.45        # LibreOffice : pt par ligne de texte (9 pt) et marge
 XL_LINE, XL_PAD = 12.75, 4.5         # Excel : pt par ligne de texte (9 pt) et marge de sécurité
+SHRINK = 0.90                        # largeur utilisée pour la mesure (marge de sécurité)
 MIN_HT = 17.4                        # hauteur par défaut du classeur
 OBS_TITLES = None                    # None = onglets dont la ligne d'en-tête contient « N° » en A
 
@@ -67,6 +68,9 @@ def main(src, dst):
                 d = re.sub(r'<row [^>]*>', lambda m: m.group(0) if 'hidden="1"' in m.group(0) else
                            re.sub(r'\scustomHeight="[^"]*"', '', re.sub(r'\sht="[^"]*"', '', m.group(0))),
                            d.decode('utf-8')).encode('utf-8')
+                # mesure prudente : colonnes B à E rétrécies de 10 % (le rendu Excel coupe un peu plus tôt que LibreOffice)
+                d = re.sub(rb'<col min="([2-5])" max="([2-5])" width="([0-9.]+)"',
+                           lambda m: b'<col min="%s" max="%s" width="%.3f"' % (m.group(1), m.group(2), float(m.group(3)) * SHRINK), d)
             zo.writestr(copy.copy(i), d)
     r = soffice(['--headless', '--convert-to', 'xlsx:Calc MS Excel 2007 XML', '--outdir', os.path.join(tmp, 'lo'), auto])
     lo = openpyxl.load_workbook(os.path.join(tmp, 'lo', 'auto.xlsx'))
