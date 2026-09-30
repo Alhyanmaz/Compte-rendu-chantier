@@ -159,7 +159,9 @@ def condense(runs, abord=None, open_=True, date_cr=None):
             txt = '\n→ Relancé %d fois, dernière le %s' % (len(e), full_date(last[1]))
             if open_:                              # fait objectif : jours calendaires depuis la 1re relance sans réponse
                 d0 = datetime.datetime.strptime(full_date(e[0][1]), '%d/%m/%Y')
-                txt += ' (sans réponse depuis %d j)' % (date_cr - d0).days
+                n = (date_cr - d0).days
+                if n > 0:                          # rien le jour même de la 1re relance
+                    txt += ' (sans réponse depuis %d j)' % n
             out.append((plain_rpr(rpr_at(runs, last[0])), txt))
     # Sujet initial en gras ; lignes suivantes sans gras, couleurs de la source
     return out, len(bare), bare[-1][1] if bare else None, mismatch

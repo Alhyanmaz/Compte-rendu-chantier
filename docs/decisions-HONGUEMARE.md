@@ -101,6 +101,14 @@ Ouverture sans réparation, onglet « Test MFC », aperçu avant impression, lis
 - **Récapitulatif interne** : colonnes « Retard » et « Jours de retard (calendaires) » dans le comptage par onglet ; **bloc 4 RETARDS** (N°, observation, section, depuis le, jours calendaires) dans « Points à traiter », pour lister les entreprises en retard à l'AMO. Colonne masquée **SECTION** (H) : ÉTUDES / TRAVAUX ou code de l'intervenant.
 - Périmètre : **ÉTUDES et TRAVAUX** ; **jours seulement**, pas de montant.
 
+## Intégration du CRC-16 (30/09/2026)
+
+| Sujet | Décision |
+|---|---|
+| « sans réponse depuis N j » | **Absent le jour même** de la 1re relance (0 j) ; affiché à partir d'1 jour. |
+| Outil | `tools/integrer_cr.py` : intègre le routage (mises à jour et nouvelles lignes) dans le CR au nouveau format. |
+
 ## En attente
 
-- Production de la copie de test finale (migration + ajustement des hauteurs).
+- Validation du CRC-16 par José.
+- Gabarit du résumé routé, puis skill V3.
