@@ -13,6 +13,16 @@ Chaîne hebdomadaire (un CR au nouveau format + le résumé routé validé par J
    relances automatiques, texte condensé recalculé, sauts de page.
 2. `python ajuster_hauteurs.py ETAPE1.xlsx FINAL.xlsx`.
 
+Relecture (José corrige le CR livré dans Excel avant diffusion, puis le redonne avec la version livrée) :
+
+1. `python relire_cr.py CR_LIVRE.xlsx CR_CORRIGE.xlsx ETAPE1.xlsx rapport.json` : compare les deux versions
+   ligne par ligne (par N°) et ne retouche que ce qui a changé (voir l'en-tête du script). Aucun masquage, aucune
+   relance automatique.
+2. `python ajuster_hauteurs.py ETAPE1.xlsx FINAL.xlsx`.
+
+Outils communs : `cr_classeur.py` (lecture du modèle, écriture des cellules, couleurs, Retard, mise en page),
+`cr_texte.py` (règles de texte), `cr_xml.py` (édition XML du classeur).
+
 `OPERATIONS.json` : `{"date_cr": "JJ/MM/AAAA", "crc": "CRC-NN", "operations": [...]}` avec
 `{"type": "maj", "num", "texte", "pour_le" ("+N" jours ou date), "fait_le"}` ou
 `{"type": "nouvelle", "onglet", "code", "section", "texte", "pour_le", "fait_le"}`.

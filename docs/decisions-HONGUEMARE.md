@@ -113,6 +113,25 @@ Ouverture sans réparation, onglet « Test MFC », aperçu avant impression, lis
 | Texte des lignes non traitées | **Conservé tel quel** (corrections manuelles de José) ; seuls les couleurs et le compteur « sans réponse depuis » sont mis à jour. Le texte n'est recalculé depuis HISTORIQUE que sur les lignes mises à jour ou relancées. |
 | Bug corrigé | Après insertion de lignes, les formules de MFC n'étaient pas décalées (AMO-003 grisée à tort) ; les lignes insérées n'étaient pas ajustées en hauteur. |
 
+## Mode relecture (30/09/2026)
+
+Validé par José : il corrige le CR livré dans Excel, puis redonne **le fichier corrigé et la version livrée** ; Claude « remouline » avec `tools/relire_cr.py`.
+
+| José modifie | Traitement |
+|---|---|
+| HISTORIQUE (F), avec « Au JJ/MM/AAAA » à la date du CR | Ce segment passe en rouge ; OBSERVATIONS recalculé depuis F. |
+| OBSERVATIONS (B) seul | Conservé ; **signalé** (à reporter dans HISTORIQUE, sinon perdu à la prochaine mise à jour de la ligne). |
+| B et F | F l'emporte ; signalé. |
+| ABORDÉ LE / POUR LE / FAIT LE | En rouge. Statut remis à la casse de la liste (« pm » → « PM »). « Relance » posée à la main : inscrite dans HISTORIQUE comme une relance automatique. Ligne passée en PM / soldée : grise sauf l'ajout du jour ; compteur « sans réponse » mis à jour. |
+| Ligne de réserve remplie **sans N°** | N° attribué, style du tableau, SECTION, JOURS RETARD, texte rouge, ABORDÉ LE = date du CR s'il est vide. |
+| Ligne supprimée, N° en double, dernière ligne de tableau utilisée | Signalé. |
+
+Limite : une modification de mise en forme seule (sans changement de contenu) n'est pas détectée.
+
+## Statut Retard dans les scripts (30/09/2026)
+
+Appliqué par l'intégration et la relecture : DATE RETARD (G) = date du CR à la pose du statut ; ligne imprimée en rouge « → En retard depuis le JJ/MM/AAAA : N jours » (sans compteur le premier jour, comme « sans réponse depuis ») ; ligne retirée quand le statut est levé.
+
 ## En attente
 
 - Validation du CRC-16 par José.
