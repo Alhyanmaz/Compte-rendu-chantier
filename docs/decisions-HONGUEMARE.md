@@ -93,6 +93,7 @@ Ouverture sans réparation, onglet « Test MFC », aperçu avant impression, lis
 | **URGENT** | José (résumé routé) | point bloquant, à traiter en priorité | fond jaune (MFC) |
 | **Retard** | José seulement (résumé routé) | le non-respect **impacte le planning** : constat de maîtrise d'œuvre, ouvre la voie aux pénalités | fond orange `FFF8CBAD` (MFC) |
 
+- **Couleur des statuts (30/09/2026)** : tous les statuts de FAIT LE en **rouge non gras**, sauf **PM en gris**. Écrits en texte enrichi pour résister au gris de la mise en forme conditionnelle. Les dates de clôture gardent la règle V1 (rouge la semaine de la clôture).
 - Priorité (FAIT LE ne porte qu'une valeur) : **Retard > URGENT > Relance** ; seule la Relance est automatique.
 - **Compteur factuel imprimé** : « → Relancé N fois, dernière le … **(sans réponse depuis N j)** » — jours calendaires depuis la 1re relance qui suit la dernière remarque ; absent sur une ligne soldée ou PM.
 - **Compteur de retard** : quand José passe une ligne en « Retard », la date du CR est inscrite en colonne masquée **DATE RETARD** (G) ; la colonne masquée **JOURS RETARD** (I) compte les **jours calendaires** (correction de José du 29/09/2026) depuis cette date jusqu'à la date du CR, ou jusqu'à la date de clôture. Formule vérifiée sur 3 cas.
