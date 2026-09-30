@@ -583,3 +583,14 @@ def etat_non_route(visible):
             else:
                 s.set('state', 'hidden')
             b.touch('xl/workbook.xml')
+
+
+def vider_non_route():
+    """Édition finale : onglet « Non routé » vidé et masqué (il est rempli à nouveau à l'intégration suivante)."""
+    if NON_ROUTE not in b.sheets:
+        return
+    sd = b.ws(NON_ROUTE).find(N + 'sheetData')
+    for row in list(sd):
+        sd.remove(row)
+    b.touch(b.sheets[NON_ROUTE])
+    etat_non_route(False)

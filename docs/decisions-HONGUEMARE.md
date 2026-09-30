@@ -143,7 +143,7 @@ Remplace le tableau de routage (deux relectures jugées trop longues). Détail e
 | Notes | Toutes traitées puis supprimées ; une note non citée **bloque** l'intégration. Note sur ÉTUDES / TRAVAUX, sur le titre ou l'en-tête d'un tableau = nouvelle(s) ligne(s) (un paragraphe par ligne). |
 | Colonne ROUTAGE | Colonne J, visible à l'écran, **non imprimée**, remplie pour **toutes** les observations touchées ; vidée au remoulinage. |
 | Couleur | **Rose** (et non lavande) : `FFFADADD` pour un point venu de l'audio seul, `FFF4A6C0` pour un [?]. Retiré au remoulinage. |
-| Onglet « Non routé » | Créé à l'intégration, **non imprimé**, masqué au remoulinage. |
+| Onglet « Non routé » | Créé à l'intégration, **non imprimé**, **vidé et masqué** au remoulinage (demande de José, 30/09/2026). |
 | Cycle | Notes + audio → CR à relire → corrections de José dans Excel → remoulinage (`relire_cr.py`) → édition finale. |
 
 ## En attente

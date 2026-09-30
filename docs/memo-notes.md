@@ -40,4 +40,4 @@ Toujours par **clic droit > Nouvelle note** (pas « Nouveau commentaire »). Ne 
 
 ## Relecture par José, puis remoulinage
 
-Corriger directement dans Excel (voir `decisions-HONGUEMARE.md`, « Mode relecture ») : ajouts dans HISTORIQUE avec « Au JJ/MM/AAAA », dates et statuts librement, nouvelles lignes dans une ligne de réserve sans N°. Redonner **le fichier corrigé et la version livrée**. Le remoulinage retire les fonds roses, vide ROUTAGE et masque « Non routé » ; un [?] laissé tel quel est signalé et considéré comme validé.
+Corriger directement dans Excel (voir `decisions-HONGUEMARE.md`, « Mode relecture ») : ajouts dans HISTORIQUE avec « Au JJ/MM/AAAA », dates et statuts librement, nouvelles lignes dans une ligne de réserve sans N°. Redonner **le fichier corrigé et la version livrée**. Le remoulinage retire les fonds roses, vide ROUTAGE, vide et masque « Non routé » ; un [?] laissé tel quel est signalé et considéré comme validé.

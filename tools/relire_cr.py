@@ -18,7 +18,7 @@ Ce que fait le script (docs/decisions-HONGUEMARE.md, « Mode relecture ») :
   JOURS RETARD, texte en rouge, ABORDÉ LE = date du CR s'il est vide ;
 - Retard : DATE RETARD et ligne « → En retard depuis le … » ; lignes vides et sauts de page remis à jour ;
 - édition finale : fonds roses retirés (un [?] laissé tel quel est signalé), colonne ROUTAGE vidée,
-  onglet « Non routé » masqué.
+  onglet « Non routé » vidé et masqué.
 """
 import copy
 import datetime
@@ -256,7 +256,7 @@ for sh in SHEETS:
             clear(cJ)
     finir_onglet(sh)
 
-etat_non_route(False)
+vider_non_route()
 maj_referentiel(next_num)
 terminer(OUT)
 json.dump(report, open(REPORT, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
