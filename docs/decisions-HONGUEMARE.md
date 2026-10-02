@@ -178,6 +178,15 @@ Fichier corrigé par José dans Excel : 69 lignes modifiées, 2 lignes ajoutées
 | Lignes supprimées (01-005, 02-055, 03-042) | Signalées ; N° non réutilisés. Préférer masquer (l'historique est perdu). |
 | 03-035 | POUR LE (formule « ABORDÉ LE + 14 ») avait glissé au 30/06/2026 après la correction d'ABORDÉ LE ; **figée au 29/09/2026** (échéance du CRC-15). `migration_cr.py` corrigé : POUR LE figée quand ABORDÉ LE est corrigé. |
 
+## Mise en page (retour de José du 02/10/2026)
+
+| Sujet | Décision / correction |
+|---|---|
+| Titre d'intervenant seul en bas de page (MOE-MOA) | `tools/paginer.py` (lancé par `ajuster_hauteurs.py`) simule la pagination et garde ensemble titre + en-tête + 1re ligne, et ÉTUDES / TRAVAUX + 1re observation. **Tous les sauts sont manuels** (marge 3 %) : Excel et LibreOffice n'arrondissent pas les hauteurs pareil, une coupure automatique tomberait ailleurs. |
+| Ligne en gras entre deux sous-sections | Traits épais de haut de page de l'ancienne mise en page, restés en milieu de page (MOE-MOA lignes 73, 115, 154, 174) : supprimés. |
+| Traits épais entre observations (charpente) | Bug de migration (modèle de bordure pris sur 03-002, qui avait un trait moyen) : `normaliser_bordures` ramène au trait fin tout trait épais hors en-tête, ligne 1 et ÉTUDES / TRAVAUX, à chaque intégration et remoulinage. |
+| Pages blanches en fin de CR | Onglet Photos sans zone d'impression (Excel imprimait A1:N88) : zone limitée au contenu (texte et images), recalculée à chaque passage. |
+
 ## En attente
 
 - Validation du CRC-16 par José.

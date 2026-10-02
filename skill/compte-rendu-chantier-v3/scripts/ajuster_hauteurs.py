@@ -162,6 +162,9 @@ def main(src, dst):
                 d = re.sub(r'<row [^>]*?\br="(\d+)"[^>]*>', fix, d.decode('utf-8')).encode('utf-8')
             zo.writestr(copy.copy(i), d)
     print('lignes ajustées :', changed)
+    # sauts de page calculés avec les hauteurs définitives : titres jamais seuls en bas de page (02/10/2026)
+    import paginer
+    paginer.main(dst, dst)
 
 
 if __name__ == '__main__':

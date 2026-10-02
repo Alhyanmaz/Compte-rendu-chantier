@@ -79,7 +79,8 @@ Onglets intouchables : Coordonnees, Généralités, Modele_lot, Reportage photo.
 
 - Au CR suivant, une ligne soldée (date ou statut terminal) lors d'un passage précédent et non touchée ce jour est **masquée**.
 - 2 lignes de réserve vides (masquées) en fin de sous-section ; insertion de lignes si besoin, bordures du classeur respectées ; la dernière ligne de chaque tableau reste visible (trait épais de fin de tableau).
-- Saut de page avant chaque TRAVAUX qui a au moins une ligne visible. Zone d'impression A:E jusqu'à la fin du dernier tableau ; en-tête répété.
+- Saut de page avant chaque TRAVAUX qui a au moins une ligne visible ; un titre n'est jamais seul en bas de page ; tous les sauts sont manuels (`paginer.py`, lancé par `ajuster_hauteurs.py`).
+- Traits épais : seulement ligne 1, en-têtes N° et ÉTUDES / TRAVAUX (normalisés à chaque passage). Onglet Photos : zone d'impression limitée au contenu. Zone d'impression A:E jusqu'à la fin du dernier tableau ; en-tête répété.
 - Hauteur des lignes : `ajuster_hauteurs.py` (LibreOffice + polices Denim INK ; sinon estimation, à contrôler).
 
 ## 8. Ce que le script ne fait pas (à faire par Claude, ou à signaler)

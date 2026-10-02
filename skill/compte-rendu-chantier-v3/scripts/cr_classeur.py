@@ -314,8 +314,9 @@ def jours_formula(c, r):
 
 
 def finir_onglet(sh):
-    """Lignes vides masquées (réserve) sauf la dernière de chaque tableau ; sauts de page avant chaque TRAVAUX
+    """Bordures normalisées ; lignes vides masquées (réserve) sauf la dernière de chaque tableau ; sauts de page avant chaque TRAVAUX
     qui a au moins une ligne visible."""
+    normaliser_bordures(sh)
     rows, tabs, info = model(sh)
     lasts = {t['r1'] for t in tabs}
     for r, it in info.items():
@@ -372,6 +373,7 @@ def maj_referentiel(next_num):
 
 
 def terminer(out):
+    zone_photos()
     b.xml('xl/workbook.xml').find(N + 'calcPr').set('fullCalcOnLoad', '1')
     b.touch('xl/workbook.xml')
     b.save(out)
@@ -595,3 +597,117 @@ def vider_non_route():
         sd.remove(row)
     b.touch(b.sheets[NON_ROUTE])
     etat_non_route(False)
+
+
+# ------------------------------------------------------------------ bordures (02/10/2026)
+_bx = {}
+EPAIS = ('medium', 'thick', 'double')
+
+
+def _border_side(xf_s, side):
+    xf = b.styles.find(N + 'cellXfs')[int(xf_s or '0')]
+    bd = b.styles.find(N + 'borders')[int(xf.get('borderId', 0))]
+    e = bd.find(N + side)
+    return e.get('style') if e is not None else None
+
+
+def set_border(c, side, style):
+    """Change un côté de bordure (top / bottom) sur un clone du style ; style None = pas de trait."""
+    key = (c.get('s', '0'), side, style)
+    if key not in _bx:
+        st = b.styles
+        borders, xfs = st.find(N + 'borders'), st.find(N + 'cellXfs')
+        xf = copy.deepcopy(xfs[int(c.get('s', '0'))])
+        bd = copy.deepcopy(borders[int(xf.get('borderId', 0))])
+        e = bd.find(N + side)
+        if e is None:
+            e = etree.SubElement(bd, N + side)
+        col = e.find(N + 'color')
+        for k in list(e.attrib):
+            del e.attrib[k]
+        if style:
+            e.set('style', style)
+            if col is None:
+                etree.SubElement(e, N + 'color', indexed='64')
+        elif col is not None:
+            e.remove(col)
+        borders.append(bd)
+        borders.set('count', str(len(borders)))
+        xf.set('borderId', str(len(borders) - 1))
+        xf.set('applyBorder', '1')
+        xfs.append(xf)
+        xfs.set('count', str(len(xfs)))
+        b.touch('xl/styles.xml')
+        _bx[key] = str(len(xfs) - 1)
+    c.set('s', _bx[key])
+
+
+def normaliser_bordures(sh):
+    """Traits épais hors en-têtes : ramenés au trait fin dans les tableaux (style du classeur), supprimés hors
+    tableau (traits de haut de page de l'ancienne mise en page, restés au milieu des pages).
+    Gardés : ligne 1 (filet de haut de feuille), en-tête N° (bas), ÉTUDES / TRAVAUX (haut et bas)."""
+    rows, tabs, info = model(sh)
+    n = 0
+    for r, row in rows.items():
+        if r == 1:
+            continue
+        it = info.get(r)
+        kind = it['kind'] if it else 'hors'
+        if kind in ('header', 'section'):
+            continue
+        dans = kind in ('obs', 'empty')
+        for c in row:
+            if c.get('r')[0] not in 'ABCDE' or len(re.sub(r'\d', '', c.get('r'))) > 1:
+                continue
+            for side in ('top', 'bottom'):
+                if _border_side(c.get('s'), side) in EPAIS:
+                    if side == 'top' and dans and info.get(r - 1, {}).get('kind') in ('header', 'section'):
+                        continue                       # trait sous l'en-tête : déjà porté par l'en-tête
+                    set_border(c, side, 'thin' if dans else None)
+                    n += 1
+    b.touch(b.sheets[sh])
+    return n
+
+
+# ------------------------------------------------------------------ zone d'impression de l'onglet Photos (02/10/2026)
+def zone_photos():
+    """Onglet Photos / Reportage photo : zone d'impression limitée au contenu (texte et images). Sans elle, Excel
+    imprime toute la plage mise en forme (A1:N88), soit des pages blanches."""
+    wbx = b.xml('xl/workbook.xml')
+    names = [s.get('name') for s in wbx.find(N + 'sheets')]
+    sh = next((n for n in names if 'photo' in n.lower()), None)
+    if sh is None:
+        return None
+    ws = b.ws(sh)
+    last_r, last_c = 1, 2
+    for row in ws.find(N + 'sheetData'):
+        for c in row:
+            if text_of(c).strip() or c.find(N + 'f') is not None:
+                last_r = max(last_r, int(row.get('r')))
+                last_c = max(last_c, col_index(c.get('r')))
+    part = b.sheets[sh]
+    d, f = part.rsplit('/', 1)
+    rp = '%s/_rels/%s.rels' % (d, f)
+    if rp in b.data:
+        for rel in b.xml(rp):
+            if rel.get('Type').endswith('/drawing'):
+                dp = resolve(part, rel.get('Target'))
+                for to in b.xml(dp).iter('{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}to'):
+                    rr = to.find('{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}row')
+                    cc = to.find('{http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing}col')
+                    last_r = max(last_r, int(rr.text) + 1)
+                    last_c = max(last_c, int(cc.text) + 1)
+    col = ''
+    k = last_c
+    while k:
+        k, m = divmod(k - 1, 26)
+        col = chr(65 + m) + col
+    ref = "'%s'!$A$1:$%s$%d" % (sh, col, last_r)
+    dns = wbx.find(N + 'definedNames')
+    idx = str(names.index(sh))
+    e = next((x for x in dns if x.get('name') == '_xlnm.Print_Area' and x.get('localSheetId') == idx), None)
+    if e is None:
+        e = etree.SubElement(dns, N + 'definedName', name='_xlnm.Print_Area', localSheetId=idx)
+    e.text = ref
+    b.touch('xl/workbook.xml')
+    return ref
