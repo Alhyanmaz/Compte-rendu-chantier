@@ -187,6 +187,10 @@ Fichier corrigé par José dans Excel : 69 lignes modifiées, 2 lignes ajoutées
 | Traits épais entre observations (charpente) | Bug de migration (modèle de bordure pris sur 03-002, qui avait un trait moyen) : `normaliser_bordures` ramène au trait fin tout trait épais hors en-tête, ligne 1 et ÉTUDES / TRAVAUX, à chaque intégration et remoulinage. |
 | Pages blanches en fin de CR | Onglet Photos sans zone d'impression (Excel imprimait A1:N88) : zone limitée au contenu (texte et images), recalculée à chaque passage. |
 
+## Ordre du jour de la réunion suivante (02/10/2026, proposition de Claude à valider)
+
+`tools/ordre_du_jour.py`, intégré au skill V3 (étape du remoulinage) plutôt qu'en skill séparé : mêmes entrées, mêmes outils, une seule installation. Word écrit sans bibliothèque. Contenu : approbation du CR ; prioritaires (URGENT, Retard) ; à traiter par intervenant (échéance atteinte le jour de la réunion, ou Relance sans échéance) avec dernier état ; en attente d'un tiers (une ligne par organisme) ; visite ; questions diverses ; présence requise (intervenants ayant un point) et convoqués (colonne C). Premier essai : réunion n° 17 du 06/10/2026, 5 pages (19 prioritaires, 59 à traiter, 45 en attente).
+
 ## En attente
 
 - Validation du CRC-16 par José.
