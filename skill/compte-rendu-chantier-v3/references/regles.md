@@ -86,5 +86,5 @@ Onglets intouchables : Coordonnees, Généralités, Modele_lot, Reportage photo.
 
 - Rédiger : c'est le rôle de Claude (voir `redaction.md`).
 - Décider d'une clôture, d'un statut ou d'une échéance absents des notes et de l'audio.
-- Détecter un doublon entre deux lignes (traitement manuel par José, jamais de « Doublon » automatique).
+- Détecter un doublon entre deux lignes. **Doublon = même destinataire + même objet** (décision du 02/10/2026) ; même objet chez deux destinataires = interface, pas un doublon. Traitement manuel par José, jamais de « Doublon » automatique.
 - Corriger une échéance antérieure à ABORDÉ LE : la **signaler**, ne pas la corriger.

@@ -18,7 +18,7 @@ Ce que fait le script (docs/decisions-HONGUEMARE.md, « Mode relecture ») :
   JOURS RETARD, texte en rouge, ABORDÉ LE = date du CR s'il est vide ;
 - Retard : DATE RETARD et ligne « → En retard depuis le … » ; lignes vides et sauts de page remis à jour ;
 - édition finale : fonds roses retirés (un [?] laissé tel quel est signalé), colonne ROUTAGE vidée,
-  onglet « Non routé » vidé et masqué.
+  onglet « Non routé » vidé et masqué ; repère bleu des doublons de la migration retiré.
 """
 import copy
 import datetime
@@ -243,6 +243,10 @@ for sh in SHEETS:
     # ---------------------------------------------------------- édition finale : rose retiré, ROUTAGE vidée
     rows, tabs, info = model(sh)
     for r, row in rows.items():
+        for c in row:                                  # repère bleu des doublons de la migration : traité par José
+            if c.get('r')[0] in 'ABCDE' and c.get('s') and fill_of(c) == BLEU_DOUBLON:
+                set_fill(c, None)
+                report.setdefault('bleu_retire', set()).add('%s ligne %d' % (sh, r))
         roses = {fill_of(c) for c in row if c.get('r')[0] in 'ABCDE' and c.get('s')} & ROSES
         if roses:
             it = info.get(r, {})
@@ -259,5 +263,6 @@ for sh in SHEETS:
 vider_non_route()
 maj_referentiel(next_num)
 terminer(OUT)
+report['bleu_retire'] = sorted(report.get('bleu_retire', []))
 json.dump(report, open(REPORT, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
 print('OK', OUT, {k: (len(v) if isinstance(v, list) else v) for k, v in report.items()})

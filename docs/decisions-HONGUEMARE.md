@@ -154,6 +154,15 @@ Remplace le tableau de routage (deux relectures jugées trop longues). Détail e
 | Skill V3 | `skill/compte-rendu-chantier-v3/` (scripts recopiés depuis `tools/` par `tools/sync_skill.sh`), paquet `compte-rendu-chantier-v3.skill`. Remplace V1 et V2 pour les classeurs au nouveau format ; V1 / V2 restent pour les classeurs à l'ancien format (ex. DUCLAIR_MIT). |
 | Hauteurs sans LibreOffice | Estimation par les métriques de la police (projet claude.ai) : jamais moins de lignes que LibreOffice sur le CRC-16 (193 / 216 identiques, 23 avec 1 ou 2 lignes de plus). |
 
+## Doublons (02/10/2026)
+
+| Sujet | Décision |
+|---|---|
+| Définition | **Doublon = même destinataire + même objet.** Deux lignes sur le même objet chez deux destinataires différents (deux lots, ou deux intervenants de MOE-MOA) sont une **interface**, pas un doublon : chacune porte l'action de son destinataire. |
+| Paires de la migration | Seul **01-004 / 01-005** est un doublon (01-005 masqué par José). 05-015 / 10-024, MOA-001 / 06-026 et AMO-004 / MOE-008 (destinataires différents) sont des interfaces, conservées. |
+| Repère bleu | Retiré au remoulinage du CRC-16 (il n'existait pas dans le classeur d'origine). |
+| Skill | Avant de créer une ligne : même objet chez le même destinataire → mise à jour de la ligne existante, ou [?] en cas d'hésitation. Interface entre onglets : renvoi dans ROUTAGE seulement. Jamais de « Doublon » automatique (traitement manuel par José). |
+
 ## En attente
 
 - Validation du CRC-16 par José.

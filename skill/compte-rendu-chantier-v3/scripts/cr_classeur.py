@@ -425,6 +425,7 @@ def statut_canonique(v):
 ROSE = 'FFFADADD'          # point venu de la transcription seule (sans note de José)
 ROSE_DOUTE = 'FFF4A6C0'    # [?] : hypothèse de Claude, à trancher par José
 ROSES = {ROSE, ROSE_DOUTE}
+BLEU_DOUBLON = 'FFBDD7EE'  # repère de doublon posé par la migration (absent du classeur d'origine), retiré au remoulinage
 ROUT_COL = 'J'
 NON_ROUTE = 'Non routé'
 _fx = {}

@@ -60,6 +60,7 @@ Matière bruitée : filtrer ce qui appelle une **action ou un constat à tracer*
 2. Lot cité, entreprise citée (`Coordonnees`), sigle d'intervenant → onglet correspondant. Concessionnaire ou réseau → `Concessionnaires`.
 3. **ÉTUDES** = se solde par un document (plan, FT, DT, note de calcul, VISA, PPSPS, agrément). **TRAVAUX** = se solde par un ouvrage constaté sur site. Les deux → deux opérations.
 4. **Même objet** (même document, même ouvrage, même zone) → mise à jour. Sujet seulement **voisin** → ligne neuve.
+   Avant toute création, chercher le même objet **chez le même destinataire** (doublon, définition du 02/10/2026) : s'il existe, mise à jour de cette ligne, ou `doute` en cas d'hésitation. Le même objet chez un **autre** destinataire est une interface : créer la ligne et écrire le renvoi dans `routage` (« interface avec 10-024 »), jamais dans le texte imprimé.
 5. Décision ou demande de la MOA → ligne neuve dans MOE-MOA, sous l'intervenant concerné.
 6. Point répété sans nouveauté → mise à jour « Relance » (`fait_le` = `Relance`).
 7. ACAU ou la MOA doit répondre → `En attente ACAU` / `En attente MOA` (à proposer dans ROUTAGE, pas à imposer).
