@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
-"""Migration du classeur CR HONGUEMARE vers le format optimisé (copie de test).
+"""Migration d'un classeur CR (ancien format V1/V2) vers le format optimisé : colonne N°, HISTORIQUE, statuts dans
+FAIT LE, Référentiel, Points à traiter.
 
-Usage : python migration_cr.py SOURCE.xlsx SORTIE.xlsx RAPPORT.json
+Usage : python migration_cr.py SOURCE.xlsx SORTIE.xlsx RAPPORT.json [OPERATION]
+        OPERATION : module de tools/operations/ (honguemare, duclair_mit…) ; par défaut, détecté d'après la
+        Page de garde. Les réglages propres à une opération (doublons, corrections décidées par José, titres
+        des sections de MOE-MOA, statuts…) sont dans ce module, pas dans ce script.
 
 Édition XML chirurgicale (cr_xml.py du skill V1) : seules les parties modifiées sont
 réécrites. openpyxl n'est utilisé qu'en LECTURE. Décisions appliquées : voir
@@ -23,7 +27,12 @@ from cr_xml import (Book, N, RNS, RED, BLACK, GREY, EPOCH, _set_color, _rpr_from
 import openpyxl  # noqa: E402
 
 SRC, DST, REPORT = sys.argv[1:4]
-DATE_CR = datetime.datetime(2026, 9, 22)
+import operations  # noqa: E402
+_pg_txt = ' '.join(str(c.value) for row in openpyxl.load_workbook(SRC, data_only=True)['Page de garde'].iter_rows()
+                   for c in row if c.value is not None)
+OPE = operations.charger(sys.argv[4] if len(sys.argv) > 4 else operations.detecter(_pg_txt))
+CFG = OPE.CONFIG
+DATE_CR = CFG['date_cr']
 PNS = 'http://schemas.openxmlformats.org/package/2006/relationships'
 CTNS = 'http://schemas.openxmlformats.org/package/2006/content-types'
 BLUE_FILL = 'FFBDD7EE'
@@ -50,40 +59,27 @@ HIDE_EMPTY = True     # masquer les lignes vides des tableaux (optimisation des 
 W_NUM = 8.0       # largeur de la colonne N° ; retirée à OBSERVATIONS pour garder la largeur de page
 CPL_B = 50        # caractères par ligne estimés dans OBSERVATIONS (largeur ~45, police 9 pt)
 
-LOT_SHEETS = ['01 - DESAMIANTAGE', '02 -GROS OEUVRE', '03 - CHARPENTE', '04 -COUVERTURE',
-              '05 - MENUISERIES EXT.', '06 - MENSUIERIE INT.', '07 - CARRELAGE SOL SOUPLES',
-              '08 - PEINTURES', '09 -CVP', '10 -CFO-CFA', '11 - VRD']
-OBS_SHEETS = ['MOE-MOA', 'Concessionnaires'] + LOT_SHEETS
+_wb_names = openpyxl.load_workbook(SRC, read_only=True).sheetnames
+LOT_SHEETS = [n for n in _wb_names if re.match(r'^\d{2}', n)]           # onglets de lots, dans l'ordre du classeur
+OBS_SHEETS = ['MOE-MOA'] + [n for n in _wb_names if n == 'Concessionnaires'] + LOT_SHEETS
 MIGR_SHEETS = OBS_SHEETS + ['Modele_lot']
-SECTION_CODES = [  # (fragment du titre de section, code) -- MOE-MOA et Concessionnaires
-    ("maitre d'ouvrage_ville", 'MOA'), ('amo_', 'AMO'), ('bureau de contr', 'CT'), ('csps_', 'SPS'),
-    ("maitrise d'oeuvre", 'MOE'), ('economiste', 'ECO'), ('bet cvc', 'BET.CVC'),
-    ('bet électricité', 'BET.ELE'), ('bet thermique', 'BET.THE'), ('bet vrd', 'BET.VRD'),
-    ('bet cuisine', 'BET.CUI'), ('structure béton', 'BET.SBE'), ('structure bois', 'BET.SBO'),
-    ('accoustique', 'BET.ACO'), ('amiante', 'BET.AMI'),
-    ('concessionaires_réseaux', 'CON.RES'), ('concessionaires_eaux', 'CON.EAU'),
-    ('concessionaires_electricite', 'CON.ELE'), ('concessionaires_assainissement', 'CON.ASS')]
-DOUBLONS = [('MOE-MOA', 35), ('MOE-MOA', 67), ('01 - DESAMIANTAGE', 10), ('01 - DESAMIANTAGE', 11),
-            ('05 - MENUISERIES EXT.', 21), ('10 -CFO-CFA', 30), ('MOE-MOA', 7),
-            ('06 - MENSUIERIE INT.', 32)]
-ATTENTE_MAP = {'': 'En attente', 'MOA': 'En attente MOA', 'RETOUR MOA': 'En attente MOA',
-               'DU RETOUR DU SIEGE': 'En attente SIEGE 27', 'SIEGE': 'En attente SIEGE 27',
-               'RDV CONCESIONNAIRE': 'En attente concessionnaire',
-               'CONCESIONNAIRE': 'En attente concessionnaire', 'ENEDIS': 'En attente ENEDIS',
-               'ORANGE': 'En attente ORANGE', 'DEVIS BEVELEC': 'En attente BEVELEC',
-               'ACAU': 'En attente ACAU', 'VISA ACAU SUR DT': 'En attente ACAU',
-               'CT': 'En attente DEKRA', 'RETOUR HAMES': 'En attente AHMES'}
-ATTENTE_PERTE = {'PHASE 2', 'MISE AU POINT CHAUFFERIE', 'MAJ PROCESS', 'BAT', '22/09/2026'}
-ABORD_FIX = {  # ABORDÉ LE corrigés sur décision de José (29/09/2026) : N° -> date
-    '02-066': datetime.datetime(2026, 6, 2), '05-009': datetime.datetime(2026, 5, 20),
-    '03-035': datetime.datetime(2026, 6, 16)}
+SECTION_CODES = CFG['section_codes']        # (fragment du titre de section, code) -- MOE-MOA et Concessionnaires
+SUPPR = set(CFG.get('sections_supprimees', []))
+DOUBLONS = CFG.get('doublons', [])
+ATTENTE_MAP = CFG.get('attente_map', {})
+ATTENTE_PERTE = CFG.get('attente_objets', set())
+ABORD_FIX = CFG.get('abord_fix', {})       # ABORDÉ LE corrigés sur décision de José : N° -> date
+PARASITES = {(sh, ref): note for sh, ref, note in CFG.get('parasites', [])}
+
+
 def attente_objet(d):
     """Objet d'une attente qui ne rentre pas dans la liste fermée (remis dans le texte, décision du 29/09/2026)."""
     if not isinstance(d, str):
         return None
     raw = ' '.join(d.split())
-    if raw.upper().startswith('AODEX'):
-        return 'avis CT %s' % raw
+    sp = getattr(OPE, 'objet_special', lambda x: None)(raw)
+    if sp:
+        return sp
     m = re.match(r'^en att?e?n?te\s*(.*)$', raw.replace('attnte', 'attente').replace('Attnte', 'Attente'), re.I)
     if m and m.group(1).strip().upper() in ATTENTE_PERTE and not re.match(r'^\d{2}/\d{2}/\d{4}$', m.group(1).strip()):
         return m.group(1).strip()
@@ -272,16 +268,14 @@ def norm_status(d):
         return 'En cours', None
     if u in TERMINAUX:
         return TERMINAUX[u], None
-    if u.startswith('AODEX'):
-        return 'En attente DEKRA', 'avis du CT « %s » : statut « En attente DEKRA », référence reportée dans le texte (interprétation)' % raw.strip()
-    if u == 'RETARD AXL':
-        return 'Relance', '« Retard AXL » converti en « Relance » (interprétation)'
+    sp = getattr(OPE, 'statut_special', lambda u, raw: None)(u, raw)
+    if sp:
+        return sp
     m = re.match(r'^EN ATT?E?N?TE\s*(.*)$', u.replace('ATTNTE', 'ATTENTE'))
     if m:
         rest = m.group(1).strip()
         if rest in ATTENTE_MAP:
-            note = '« HAMES » lu comme AHMES (BET VRD) (interprétation)' if rest == 'RETOUR HAMES' else None
-            return ATTENTE_MAP[rest], note
+            return ATTENTE_MAP[rest], CFG.get('attente_notes', {}).get(rest)
         if rest in ATTENTE_PERTE:
             return 'En attente', 'objet de l\'attente « %s » non repris dans FAIT LE : à reporter dans le texte ?' % rest.lower()
         return 'En attente', 'précision « %s » non reconnue' % rest
@@ -349,7 +343,7 @@ def sheet_tables(sheet):
 
 
 def section_code(title):
-    low = (title or '').lower()
+    low = (title or '').lower().replace('œ', 'oe')
     for k, code in SECTION_CODES:
         if k in low:
             return code
@@ -391,9 +385,17 @@ def next_table_id():
     return mx + 1
 
 
-# ================================================================== 0. note vide MOE-MOA A35
-b.delete_note('MOE-MOA', 'A35')
-report['anomalies_corrigees'].append(['MOE-MOA', 'A35', 'Note de cellule vide « José Mazzarese: » supprimée'])
+# ================================================================== 0. notes de cellule à supprimer (décisions de José)
+for _sh, _ref, _note in CFG.get('notes_a_supprimer', []):
+    b.delete_note(_sh, _ref)
+    report['anomalies_corrigees'].append([_sh, _ref, _note])
+
+
+def val(ws, r, k):
+    """Valeur d'une cellule à l'analyse ; les caractères parasites (réglages de l'opération) comptent pour vide."""
+    if (ws.title, '%s%d' % (col_letter(k), r)) in PARASITES:
+        return None
+    return ws.cell(r, k).value
 
 # ================================================================== 1. analyse (coordonnées d'origine)
 info = {}   # (sheet, r) -> dict
@@ -419,9 +421,9 @@ for sh in MIGR_SHEETS:
         t['code'] = code
         cur_sec = code or ''
         for r in range(t['r0'] + 1, t['r1'] + 1):
-            a = wsf.cell(r, 1).value
+            a = val(wsf, r, 1)
             at = a.strip() if isinstance(a, str) else ''
-            others = [wsf.cell(r, k).value for k in (2, 3, 4)]
+            others = [val(wsf, r, k) for k in (2, 3, 4)]
             kind = 'empty'
             if at.upper() in ('ÉTUDES', 'TRAVAUX', 'SYNTHESE'):
                 kind = 'section'
@@ -433,8 +435,8 @@ for sh in MIGR_SHEETS:
                 counters[code] = counters.get(code, 0) + 1
                 num = '%s-%03d' % (code, counters[code])
             info[(sh, r)] = dict(kind=kind, table=t['name'], num=num, hidden=bool(wsf.row_dimensions[r].hidden),
-                                 A=a, B=wsf.cell(r, 2).value, C=wsf.cell(r, 3).value, D=wsf.cell(r, 4).value,
-                                 Cv=wsv.cell(r, 3).value, Dv=wsv.cell(r, 4).value, section=cur_sec)
+                                 A=a, B=val(wsf, r, 2), C=val(wsf, r, 3), D=val(wsf, r, 4),
+                                 Cv=val(wsv, r, 3), Dv=val(wsv, r, 4), section=cur_sec)
         info[(sh, t['r0'])] = dict(kind='header', table=t['name'])
     report['numerotation'].update({c: n for c, n in counters.items()})
     info[(sh, '_tables')] = tabs
@@ -447,32 +449,36 @@ for sh in MIGR_SHEETS:
     ws = b.ws(sh)
     sd = ws.find(N + 'sheetData')
     expand_shared(ws)
-    if sh == '02 -GROS OEUVRE':   # « s » isolé hors tableau
-        for c in list(ws.iter(N + 'c')):
-            if c.get('r') == 'F84':
-                c.getparent().remove(c)
-        report['anomalies_corrigees'].append([sh, 'F84', 'Caractère « s » isolé hors tableau supprimé'])
+    for (_sh, _ref), _note in PARASITES.items():   # caractères isolés (« s »…) : cellule vidée
+        if _sh == sh:
+            for c in list(ws.iter(N + 'c')):
+                if c.get('r') == _ref:
+                    c.getparent().remove(c)
+            report['anomalies_corrigees'].append([sh, _ref, _note])
     rows = {int(r.get('r')): r for r in sd.findall(N + 'row')}
     max_row = max(rows)
     tabs = info[(sh, '_tables')]
     deleted, inserts = set(), {}   # inserts[after_row] = [(kind, template_row, table_name, payload)]
 
     if sh == 'MOE-MOA':
-        cre = [t for t in tabs if t['code'] == 'BET.CUI'][0]
-        deleted |= set(range(cre['r0'] - 1, cre['r1'] + 2))       # titre, tableau, ligne vide suivante
-        report['structure'].append([sh, 'lignes %d à %d' % (cre['r0'] - 1, cre['r1'] + 1),
-                                    'Section « BET cuisine_CREACEPT » supprimée (1 observation : « %s »)'
-                                    % str(info[(sh, cre['r0'] + 1)]['A']).strip()])
-        moa = [t for t in tabs if t['code'] == 'MOA'][0]
-        inserts.setdefault(moa['r1'] + 1, []).extend([
-            ('title', 4, None, "Maitre d'ouvrage_SIEGE 27"), ('blank', 5, None, None),
-            ('header', moa['r0'], 'NEW_SIE', None), ('data', moa['r1'], 'NEW_SIE', None),
-            ('data', moa['r1'], 'NEW_SIE', None), ('blank', moa['r1'] + 1, None, None)])
-        report['structure'].append([sh, 'après la ligne %d' % (moa['r1'] + 1),
-                                    'Section « Maitre d\'ouvrage_SIEGE 27 » créée (tableau vide, code SIE)'])
+        for cre in [t for t in tabs if t['code'] in SUPPR]:
+            deleted |= set(range(cre['r0'] - 1, cre['r1'] + 2))       # titre, tableau, ligne vide suivante
+            report['structure'].append([sh, 'lignes %d à %d' % (cre['r0'] - 1, cre['r1'] + 1),
+                                        'Section « %s » supprimée (1 observation : « %s »)'
+                                        % ('BET cuisine_CREACEPT' if cre['code'] == 'BET.CUI' else cre['code'],
+                                           str(info[(sh, cre['r0'] + 1)]['A']).strip())])
+        for aj in CFG.get('sections_ajoutees', []):
+            moa = [t for t in tabs if t['code'] == aj['apres']][0]
+            tn = 'NEW_' + aj['code']
+            inserts.setdefault(moa['r1'] + 1, []).extend([
+                ('title', aj['ligne_titre'], None, aj['titre']), ('blank', aj['ligne_vide'], None, None),
+                ('header', moa['r0'], tn, None), ('data', moa['r1'], tn, None),
+                ('data', moa['r1'], tn, None), ('blank', moa['r1'] + 1, None, None)])
+            report['structure'].append([sh, 'après la ligne %d' % (moa['r1'] + 1),
+                                        'Section « %s » créée (tableau vide, code %s)' % (aj['titre'], aj['code'])])
     # réserve de 2 lignes vides par sous-section
     for t in tabs:
-        if t['name'] in {x['name'] for x in tabs if x.get('code') == 'BET.CUI'}:
+        if t.get('code') in SUPPR:
             continue
         secs = [r for r in range(t['r0'] + 1, t['r1'] + 1) if info[(sh, r)]['kind'] == 'section']
         bounds, start = [], t['r0'] + 1
@@ -618,7 +624,7 @@ for sh in MIGR_SHEETS:
 
     # tableaux : plage, colonnes N° et HISTORIQUE
     for t in tabs:
-        if t.get('code') == 'BET.CUI':
+        if t.get('code') in SUPPR:
             continue
         rr = sorted(table_rows[t['name']])
         tx = b.xml(t['part'])
@@ -646,59 +652,59 @@ for sh in MIGR_SHEETS:
         tcs.set('count', str(len(tcs)))
         b.touch(t['part'])
         t['new_rows'] = rr
-    # suppression du tableau CREACEPT
+    # suppression des tableaux de sections retirées (CREACEPT…), création des sections ajoutées (SIEGE 27…)
     if sh == 'MOE-MOA':
-        cre = [t for t in tabs if t['code'] == 'BET.CUI'][0]
-        tp = ws.find(N + 'tableParts')
-        for e in list(tp):
-            if e.get('{%s}id' % RNS) == cre['rid']:
-                tp.remove(e)
-        tp.set('count', str(len(tp)))
         d, f = part.rsplit('/', 1)
-        rels = b.xml('%s/_rels/%s.rels' % (d, f))
-        for r in list(rels):
-            if r.get('Id') == cre['rid']:
-                rels.remove(r)
-        b.touch('%s/_rels/%s.rels' % (d, f))
-        del b.data[cre['part']]
-        b.infos = [i for i in b.infos if i.filename != cre['part']]
-        ct = b.xml('[Content_Types].xml')
-        for e in list(ct):
-            if e.get('PartName') == '/' + cre['part']:
-                ct.remove(e)
-        b.touch('[Content_Types].xml')
-        # nouveau tableau SIEGE 27
-        rr = sorted(table_rows['NEW_SIE'])
-        tid = next_table_id()
-        tname = 'TableauMOEMOA_SIE'
-        tpart = 'xl/tables/table%d.xml' % (max(int(re.sub(r'\D', '', n)) for n in b.data if n.startswith('xl/tables/table')) + 1)
-        moa_t = b.xml([t for t in tabs if t['code'] == 'MOA'][0]['part'])
-        tx = copy.deepcopy(moa_t)
-        tx.set('id', str(tid))
-        for k in list(tx.attrib):
-            if k.endswith('}uid'):
-                tx.attrib.pop(k)
-        tx.set('name', tname)
-        tx.set('displayName', tname)
-        tx.set('ref', 'A%d:%s%d' % (rr[0], LAST_COL, rr[-1]))
-        af = tx.find(N + 'autoFilter')
-        if af is not None:
-            af.set('ref', tx.get('ref'))
-            for k in list(af.attrib):
+        tp = ws.find(N + 'tableParts')
+        for cre in [t for t in tabs if t['code'] in SUPPR]:
+            for e in list(tp):
+                if e.get('{%s}id' % RNS) == cre['rid']:
+                    tp.remove(e)
+            tp.set('count', str(len(tp)))
+            rels = b.xml('%s/_rels/%s.rels' % (d, f))
+            for r in list(rels):
+                if r.get('Id') == cre['rid']:
+                    rels.remove(r)
+            b.touch('%s/_rels/%s.rels' % (d, f))
+            del b.data[cre['part']]
+            b.infos = [i for i in b.infos if i.filename != cre['part']]
+            ct = b.xml('[Content_Types].xml')
+            for e in list(ct):
+                if e.get('PartName') == '/' + cre['part']:
+                    ct.remove(e)
+            b.touch('[Content_Types].xml')
+        for aj in CFG.get('sections_ajoutees', []):
+            rr = sorted(table_rows['NEW_' + aj['code']])
+            tid = next_table_id()
+            tname = 'TableauMOEMOA_' + aj['code']
+            tpart = 'xl/tables/table%d.xml' % (max(int(re.sub(r'\D', '', n)) for n in b.data if n.startswith('xl/tables/table')) + 1)
+            moa_t = b.xml([t for t in tabs if t['code'] == aj['apres']][0]['part'])
+            tx = copy.deepcopy(moa_t)
+            tx.set('id', str(tid))
+            for k in list(tx.attrib):
                 if k.endswith('}uid'):
-                    af.attrib.pop(k)
-        for tc in tx.iter(N + 'tableColumn'):
-            for k in list(tc.attrib):
-                if k.endswith('}uid'):
-                    tc.attrib.pop(k)
-        add_part(tpart, etree.tostring(tx, xml_declaration=True, encoding='UTF-8', standalone=True),
-                 'application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml')
-        rid = add_rel('%s/_rels/%s.rels' % (d, f), 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/table',
-                      '../tables/' + tpart.rsplit('/', 1)[1])
-        etree.SubElement(tp, N + 'tablePart', {'{%s}id' % RNS: rid})
-        tp.set('count', str(len(tp)))
-        tabs.append(dict(part=tpart, name=tname, code='SIE', new_rows=rr, r0=None))
-        info[(sh, '_sie_rows')] = rr
+                    tx.attrib.pop(k)
+            tx.set('name', tname)
+            tx.set('displayName', tname)
+            tx.set('ref', 'A%d:%s%d' % (rr[0], LAST_COL, rr[-1]))
+            af = tx.find(N + 'autoFilter')
+            if af is not None:
+                af.set('ref', tx.get('ref'))
+                for k in list(af.attrib):
+                    if k.endswith('}uid'):
+                        af.attrib.pop(k)
+            for tc in tx.iter(N + 'tableColumn'):
+                for k in list(tc.attrib):
+                    if k.endswith('}uid'):
+                        tc.attrib.pop(k)
+            add_part(tpart, etree.tostring(tx, xml_declaration=True, encoding='UTF-8', standalone=True),
+                     'application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml')
+            rid = add_rel('%s/_rels/%s.rels' % (d, f), 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/table',
+                          '../tables/' + tpart.rsplit('/', 1)[1])
+            etree.SubElement(tp, N + 'tablePart', {'{%s}id' % RNS: rid})
+            tp.set('count', str(len(tp)))
+            tabs.append(dict(part=tpart, name=tname, code=aj['code'], new_rows=rr, r0=None))
+            info.setdefault((sh, '_added_rows'), []).append(rr)
     b.touch(part)
 
 # ================================================================== 3. contenu : N°, HISTORIQUE, texte condensé, statuts
@@ -834,11 +840,12 @@ for sh in MIGR_SHEETS:
             report['anomalies_signalees'].append([sh, it['num'], 'ABORDÉ LE vide' + (' (ligne masquée)' if it['hidden'] else '')])
         if isinstance(Cv, datetime.datetime) and Cv.year >= 2027:
             report['anomalies_signalees'].append([sh, it['num'], 'POUR LE en %s : %s (à confirmer)' % (Cv.year, Cv.strftime('%d/%m/%Y'))])
-        if sh == '02 -GROS OEUVRE' and r == 83 and isinstance(Bv, datetime.datetime) and Bv.year == 2027:
-            cC = cell_in_row(row, 'C')
-            v = cC.find(N + 'v')
-            v.text = str((datetime.datetime(2026, 7, 7) - EPOCH).days)
-            report['anomalies_corrigees'].append([sh, it['num'], 'ABORDÉ LE 07/07/2027 corrigé en 07/07/2026 (interprétation : faute de frappe sur l\'année, le texte parle du 15/07/2026)'])
+        for _sh, _r, _an, _nd, _note in CFG.get('abord_annee', []):
+            if sh == _sh and r == _r and isinstance(Bv, datetime.datetime) and Bv.year == _an:
+                cC = cell_in_row(row, 'C')
+                v = cC.find(N + 'v')
+                v.text = str((_nd - EPOCH).days)
+                report['anomalies_corrigees'].append([sh, it['num'], _note])
         if (sh, r) in DOUBLONS:
             for col in ('A', 'B'):
                 c = cell_in_row(row, col)
@@ -858,12 +865,12 @@ for sh in MIGR_SHEETS:
             cell_in_row(row, 'G', cs['C'].get('s') if 'C' in cs else None)
             set_formula_str(cell_in_row(row, 'I', cs['B'].get('s')), f_jours(int(row.get('r'))))
 
-# en-tête du tableau SIEGE 27 : N° / HISTORIQUE
-sie_rows = info[('MOE-MOA', '_sie_rows')]
-row = [r for r in b.ws('MOE-MOA').find(N + 'sheetData') if int(r.get('r')) == sie_rows[0]][0]
-sH = cell_in_row(row, 'B').get('s')
-for col, txt in (('A', 'N°'), ('F', 'HISTORIQUE'), ('G', EXTRA_COLS[0]), ('H', EXTRA_COLS[1]), ('I', EXTRA_COLS[2])):
-    set_cell_si(cell_in_row(row, col, sH), si_new([(None, txt)]), sH)
+# en-tête des tableaux des sections ajoutées (SIEGE 27…) : N° / HISTORIQUE
+for sie_rows in info.get(('MOE-MOA', '_added_rows'), []):
+    row = [r for r in b.ws('MOE-MOA').find(N + 'sheetData') if int(r.get('r')) == sie_rows[0]][0]
+    sH = cell_in_row(row, 'B').get('s')
+    for col, txt in (('A', 'N°'), ('F', 'HISTORIQUE'), ('G', EXTRA_COLS[0]), ('H', EXTRA_COLS[1]), ('I', EXTRA_COLS[2])):
+        set_cell_si(cell_in_row(row, col, sH), si_new([(None, txt)]), sH)
 
 # ================================================================== 3ter. couleur des statuts (29/09/2026)
 # Tous les statuts de FAIT LE en ROUGE non gras, sauf PM en GRIS. Écrits en texte enrichi (couleur par
@@ -966,8 +973,8 @@ for sh in MIGR_SHEETS:
             kinds[new_of[r]] = it['kind']
     for R_ in new_data_rows.get(sh, ()):
         kinds[R_] = 'empty'
-    for R_ in info.get((sh, '_sie_rows'), [])[:1]:
-        kinds[R_] = 'header'
+    for _rr in info.get((sh, '_added_rows'), []):
+        kinds[_rr[0]] = 'header'
     obs_rows = sorted(R_ for R_, k in kinds.items() if k == 'obs')
     if obs_rows:
         # gabarit = une observation « courante » (précédée d'une observation) : traits fins haut et bas,
@@ -1001,7 +1008,7 @@ for sh in MIGR_SHEETS:
         anchor = ws.find(N + 'mergeCells')
     prio = 1
     for t in info[(sh, '_tables')]:
-        if t.get('code') == 'BET.CUI' or len(t.get('new_rows', [])) < 2:
+        if t.get('code') in SUPPR or len(t.get('new_rows', [])) < 2:
             continue
         r0, r1 = t['new_rows'][1], t['new_rows'][-1]
         cf = etree.Element(N + 'conditionalFormatting', sqref='A%d:E%d' % (r0, r1))
@@ -1059,7 +1066,7 @@ for sh in MIGR_SHEETS:
             ws.find(N + 'headerFooter').addnext(rb)
     # validation de données sur FAIT LE (liste déroulante, saisie libre autorisée pour les dates)
     sq = ' '.join('E%d:E%d' % (t['new_rows'][1], t['new_rows'][-1]) for t in tabs
-                  if t.get('code') != 'BET.CUI' and len(t['new_rows']) > 1)
+                  if t.get('code') not in SUPPR and len(t['new_rows']) > 1)
     old = ws.find(N + 'dataValidations')
     if old is not None:
         ws.remove(old)
@@ -1077,8 +1084,7 @@ for sh in MIGR_SHEETS:
     b.touch(b.sheets[sh])
 
 # ================================================================== 5. Coordonnees : fautes
-FIXES_COORD = [('A23', 'DESAMIANRAGE', 'DESAMIANTAGE'), ('A20', 'AOUSTIQUE', 'ACOUSTIQUE'),
-               ('H35', 'Esc', 'Exc'), ('A41', 'Esc : Excusé', 'Exc : Excusé')]
+FIXES_COORD = CFG.get('coord_fixes', [])
 for ref, a, z in FIXES_COORD:
     rs = b.runs('Coordonnees', ref)
     rs2 = [(rpr, t.replace(a, z)) for rpr, t in rs]
@@ -1088,9 +1094,9 @@ for ref, a, z in FIXES_COORD:
 
 # ================================================================== 6. Page de garde en formules
 DD = lambda e: 'RIGHT("0"&DAY(%s),2)&"/"&RIGHT("0"&MONTH(%s),2)&"/"&YEAR(%s)' % (e, e, e)
-pg = {'C22': ('"Compte rendu de la réunion de chantier du "&' + DD('B22'),
-              'Compte rendu de la réunion de chantier du 22/09/2026'),
-      'B26': ('" RDV chantier "&' + DD('B22+7') + '&" à "&B23', ' RDV chantier 29/09/2026 à 9H00')}
+PG = CFG['page_de_garde']
+pg = {PG['titre']: ('"Compte rendu de la réunion de chantier du "&' + DD(PG['date']), PG['valeurs'][0]),
+      PG['prochaine']: (PG['prochaine_formule'].format(d=DD(PG['date'] + '+7'), h=PG['heure']), PG['valeurs'][1])}
 for ref, (f, v) in pg.items():
     c = b.cell('Page de garde', ref)
     for ch in list(c):
@@ -1163,18 +1169,15 @@ def add_sheet(name, xml_bytes, state=None):
 
 # ---- Référentiel
 coord = wb_f['Coordonnees']
-REF_ROWS = [('MOA', 6), ('SIE', 7), ('AMO', 8), ('CT', 9), ('SPS', 10), ('MOE', 11), ('ECO', 12),
-            ('BET.ELE', 13), ('BET.CVC', 14), ('BET.THE', 15), ('BET.VRD', 16), ('BET.SBO', 17),
-            ('BET.SBE', 18), ('BET.AMI', 19), ('BET.ACO', 20)] + \
-           [('%02d' % k, 22 + k) for k in range(1, 12)] + \
-           [('CON.EAU', 36), ('CON.ELE', 37), ('CON.ASS', 38), ('CON.RES', 39)]
-sheet_of_code = {'%02d' % k: LOT_SHEETS[k - 1] for k in range(1, 12)}
+REF_ROWS = CFG['referentiel']
+sheet_of_code = {n[:2]: n for n in LOT_SHEETS}
 section_title = {}
 for (s2, key), tabs in [(k, v) for k, v in info.items() if k[1] == '_tables']:
     for t in tabs:
         if t.get('code') and s2 in ('MOE-MOA', 'Concessionnaires'):
             sheet_of_code[t['code']] = s2
-sheet_of_code['SIE'] = 'MOE-MOA'
+for aj in CFG.get('sections_ajoutees', []):
+    sheet_of_code[aj['code']] = 'MOE-MOA'
 cells = {('A', 1): c_xml('A1', 'RÉFÉRENTIEL — onglet de travail masqué, non imprimé (codes, alias, vocabulaire)', st_title)}
 cells[('A', 3)] = c_xml('A3', '1. Intervenants', st_title)
 for i, h in enumerate(['Code', 'Onglet', 'Organisme', 'Représentants', 'Alias entendus (séparés par ;)', 'Prochain N°']):
@@ -1191,26 +1194,14 @@ for code, cr in REF_ROWS:
         col = 'ABCDEF'[i]
         cells[(col, r)] = c_xml('%s%d' % (col, r), v, st_wrap)
     r += 1
-STATUTS = ['Relance', 'URGENT', 'Retard', 'PM', 'En cours', 'En attente', 'En attente MOA', 'En attente SIEGE 27',
-           'En attente CICLOP', 'En attente DEKRA', 'En attente VERITAS', 'En attente ACAU', 'En attente ECLA',
-           'En attente CONCEPT NF', 'En attente ECHOS', 'En attente AHMES', 'En attente BESB', 'En attente ESGCB',
-           'En attente ACCEO', 'En attente GAMBA', 'En attente DEMOLAF', 'En attente AXL', 'En attente AGC',
-           'En attente GOUJON VALLEE', 'En attente AVA', 'En attente MCO', 'En attente REVNOR', 'En attente NORDEC',
-           'En attente ELAIRGIE', 'En attente BEVELEC', 'En attente CFB TP', 'En attente concessionnaire',
-           'En attente ENEDIS', 'En attente ORANGE', 'En attente SRPN', 'En attente SPANC',
-           'Annulé', 'Doublon', 'Sans objet', 'Refusé']
+STATUTS = CFG['statuts']
 cells[('H', 3)] = c_xml('H3', '2. Statuts FAIT LE (liste fermée)', st_title)
 cells[('H', 4)] = c_xml('H4', 'Statut (ou une date)', st_hdr)
 for i, v in enumerate(STATUTS):
     cells[('H', 5 + i)] = c_xml('H%d' % (5 + i), v, st_body)
 add_name('ListeStatuts', "'Référentiel'!$H$5:$H$%d" % (4 + len(STATUTS)))
-ZONES = ['préau', 'SHED', 'bâtiment A', 'chaufferie', 'restaurant scolaire', 'école existante', 'extension',
-         'mairie', 'cours anglaises', 'vide sanitaire', 'base vie', 'salle polyvalente', 'maternelle',
-         'circulation', 'cuisine', 'self', 'pignon']
-LEX = ['RSD', 'longrines', 'hourdis', 'courettes', 'acodrains', 'MOB', 'tebopins', 'pré-isolé', 'soubassement',
-       'rejingot', 'couvertine', 'précadre', 'claire-voie', 'citerneau', 'ANC', 'AEP', 'arbalétrier', 'bac',
-       'noue', 'tranchée commune', 'dallage', 'sous-œuvre', 'enduit', 'cloisonnettes', 'CTA', 'DAS', 'BPE', 'TEAMS',
-       'prorata']
+ZONES = CFG.get('zones', [])
+LEX = CFG.get('lexique', [])
 SIGLES = [('DT', 'DICT'), ('FT', 'PT'), ('CVP', 'CVC'), ('VISA', 'VIC'), ('EXE', 'DESC'), ('PPSPS', 'PGC'),
           ('CFO-CFA', '—')]
 for col0, title, items in (('J', '3. Zones et ouvrages', ZONES), ('M', '4. Lexique du chantier', LEX)):
@@ -1235,7 +1226,7 @@ add_sheet('Référentiel', build_sheet(cells, [('A', 10), ('B', 26), ('C', 22), 
 all_tabs = []
 for sh in OBS_SHEETS:
     for t in sorted(info[(sh, '_tables')], key=lambda t: t['new_rows'][0] if t.get('new_rows') else 0):
-        if t.get('code') != 'BET.CUI':
+        if t.get('code') not in SUPPR:
             all_tabs.append(t['name'])
 add_name('TousLesPoints', '_xlfn.VSTACK(%s)' % ','.join('%s[#Data]' % n for n in all_tabs))
 cells = {('A', 1): c_xml('A1', 'POINTS À TRAITER — onglet interne masqué, exclu du PDF', st_title),
@@ -1290,43 +1281,43 @@ etree.SubElement(pf, N + 'bgColor', rgb='FFFFFF00')
 dxfs.set('count', str(len(dxfs)))
 id_grey, id_yel = len(dxfs) - 2, len(dxfs) - 1
 b.touch('xl/styles.xml')
-body = b.cell('05 - MENUISERIES EXT.', 'B7', False).get('s')    # style réel d'une observation
-blk = xf_clone(body, color=BLACK)
-redrpr = _rpr_from_font(b._font_of(blk))
-_set_color(redrpr, RED)
-blkrpr = _rpr_from_font(b._font_of(blk))
-_set_color(blkrpr, BLACK)
-st_d = xf_clone(b.cell('05 - MENUISERIES EXT.', 'C7', False).get('s'), color=BLACK)
-serial = lambda d: (d - EPOCH).days
-TESTS = [('T-01', 'Ligne PM : historique noir. ', 'Au 22/09/2026 ajout du jour en rouge.', serial(datetime.datetime(2026, 6, 2)), None, 'PM',
-          'Historique GRIS ; ajout du jour ROUGE ?'),
-         ('T-02', 'Ligne soldée (date en FAIT LE). ', 'Au 22/09/2026 ajout du jour en rouge.', serial(datetime.datetime(2026, 6, 9)), None, serial(datetime.datetime(2026, 9, 22)),
-          'Historique GRIS ; ajout ROUGE ?'),
-         ('T-03', 'Ligne URGENT. ', 'Au 22/09/2026 Relance.', serial(datetime.datetime(2026, 5, 5)), serial(datetime.datetime(2026, 5, 19)), 'URGENT',
-          'Fond JAUNE ; texte NOIR + ROUGE ?'),
-         ('T-04', 'Ligne En attente (ex-PM). ', 'Au 22/09/2026 ajout en rouge.', serial(datetime.datetime(2026, 6, 16)), None, 'En attente MOA',
-          'NI gris NI jaune ?'),
-         ('T-05', 'Ligne PM entièrement noire, sans ajout du jour.', None, serial(datetime.datetime(2026, 5, 5)), None, 'PM',
-          'Tout GRIS ?'),
-         ('T-06', 'Ligne active normale. ', 'Au 22/09/2026 ajout en rouge.', serial(datetime.datetime(2026, 9, 15)), serial(datetime.datetime(2026, 9, 29)), None,
-          'Aucun changement (noir + rouge)')]
-cells = {('A', 1): c_xml('A1', 'TEST — mise en forme conditionnelle (gris si PM ou soldé, jaune si URGENT). À supprimer après le test.', st_title)}
-for i, h in enumerate(['N°', 'OBSERVATIONS', 'ABORDÉ LE', 'POUR LE', 'FAIT LE', 'CE QUE VOUS DEVEZ VOIR']):
-    cells[('ABCDEF'[i], 3)] = c_xml('%s3' % 'ABCDEF'[i], h, st_hdr)
-for k, (num, h, add, d1, d2, fe, exp) in enumerate(TESTS):
-    r = 4 + k
-    cells[('A', r)] = c_xml('A%d' % r, num, blk)
-    runs = [(blkrpr, h)] + ([(redrpr, add)] if add else [])
-    cells[('B', r)] = '<c r="B%d" s="%s" t="s"><v>%d</v></c>' % (r, blk, si_new(runs))
-    cells[('C', r)] = c_xml('C%d' % r, d1, st_d)
-    cells[('D', r)] = c_xml('D%d' % r, d2, st_d) if d2 else c_xml('D%d' % r, None, st_d)
-    cells[('E', r)] = c_xml('E%d' % r, fe, st_d if isinstance(fe, int) else blk) if fe is not None else c_xml('E%d' % r, None, blk)
-    cells[('F', r)] = c_xml('F%d' % r, exp, st_wrap)
-cf = ('<conditionalFormatting sqref="A4:E9"><cfRule type="expression" dxfId="%d" priority="1"><formula>$E4="URGENT"</formula></cfRule>'
-      '<cfRule type="expression" dxfId="%d" priority="2"><formula>OR($E4="PM",$E4="Annulé",$E4="Doublon",$E4="Sans objet",$E4="Refusé",ISNUMBER($E4))</formula></cfRule>'
-      '</conditionalFormatting>' % (id_yel, id_grey))
-if ADD_TEST_MFC:
-  add_sheet('Test MFC', build_sheet(cells, [('A', 9.6), ('B', 53), ('C', 11), ('D', 11), ('E', 16), ('F', 34)], cf))
+if ADD_TEST_MFC:   # onglet de test (validé le 29/09/2026), plus produit ; gardé pour mémoire
+    body = b.cell('05 - MENUISERIES EXT.', 'B7', False).get('s')    # style réel d'une observation
+    blk = xf_clone(body, color=BLACK)
+    redrpr = _rpr_from_font(b._font_of(blk))
+    _set_color(redrpr, RED)
+    blkrpr = _rpr_from_font(b._font_of(blk))
+    _set_color(blkrpr, BLACK)
+    st_d = xf_clone(b.cell('05 - MENUISERIES EXT.', 'C7', False).get('s'), color=BLACK)
+    serial = lambda d: (d - EPOCH).days
+    TESTS = [('T-01', 'Ligne PM : historique noir. ', 'Au 22/09/2026 ajout du jour en rouge.', serial(datetime.datetime(2026, 6, 2)), None, 'PM',
+              'Historique GRIS ; ajout du jour ROUGE ?'),
+             ('T-02', 'Ligne soldée (date en FAIT LE). ', 'Au 22/09/2026 ajout du jour en rouge.', serial(datetime.datetime(2026, 6, 9)), None, serial(datetime.datetime(2026, 9, 22)),
+              'Historique GRIS ; ajout ROUGE ?'),
+             ('T-03', 'Ligne URGENT. ', 'Au 22/09/2026 Relance.', serial(datetime.datetime(2026, 5, 5)), serial(datetime.datetime(2026, 5, 19)), 'URGENT',
+              'Fond JAUNE ; texte NOIR + ROUGE ?'),
+             ('T-04', 'Ligne En attente (ex-PM). ', 'Au 22/09/2026 ajout en rouge.', serial(datetime.datetime(2026, 6, 16)), None, 'En attente MOA',
+              'NI gris NI jaune ?'),
+             ('T-05', 'Ligne PM entièrement noire, sans ajout du jour.', None, serial(datetime.datetime(2026, 5, 5)), None, 'PM',
+              'Tout GRIS ?'),
+             ('T-06', 'Ligne active normale. ', 'Au 22/09/2026 ajout en rouge.', serial(datetime.datetime(2026, 9, 15)), serial(datetime.datetime(2026, 9, 29)), None,
+              'Aucun changement (noir + rouge)')]
+    cells = {('A', 1): c_xml('A1', 'TEST — mise en forme conditionnelle (gris si PM ou soldé, jaune si URGENT). À supprimer après le test.', st_title)}
+    for i, h in enumerate(['N°', 'OBSERVATIONS', 'ABORDÉ LE', 'POUR LE', 'FAIT LE', 'CE QUE VOUS DEVEZ VOIR']):
+        cells[('ABCDEF'[i], 3)] = c_xml('%s3' % 'ABCDEF'[i], h, st_hdr)
+    for k, (num, h, add, d1, d2, fe, exp) in enumerate(TESTS):
+        r = 4 + k
+        cells[('A', r)] = c_xml('A%d' % r, num, blk)
+        runs = [(blkrpr, h)] + ([(redrpr, add)] if add else [])
+        cells[('B', r)] = '<c r="B%d" s="%s" t="s"><v>%d</v></c>' % (r, blk, si_new(runs))
+        cells[('C', r)] = c_xml('C%d' % r, d1, st_d)
+        cells[('D', r)] = c_xml('D%d' % r, d2, st_d) if d2 else c_xml('D%d' % r, None, st_d)
+        cells[('E', r)] = c_xml('E%d' % r, fe, st_d if isinstance(fe, int) else blk) if fe is not None else c_xml('E%d' % r, None, blk)
+        cells[('F', r)] = c_xml('F%d' % r, exp, st_wrap)
+    cf = ('<conditionalFormatting sqref="A4:E9"><cfRule type="expression" dxfId="%d" priority="1"><formula>$E4="URGENT"</formula></cfRule>'
+          '<cfRule type="expression" dxfId="%d" priority="2"><formula>OR($E4="PM",$E4="Annulé",$E4="Doublon",$E4="Sans objet",$E4="Refusé",ISNUMBER($E4))</formula></cfRule>'
+          '</conditionalFormatting>' % (id_yel, id_grey))
+    add_sheet('Test MFC', build_sheet(cells, [('A', 9.6), ('B', 53), ('C', 11), ('D', 11), ('E', 16), ('F', 34)], cf))
 
 tstyles = b.styles.find(N + 'tableStyles')
 src_ts = [t for t in tstyles if t.get('name') == 'Style de tableau 1'][0]
@@ -1349,7 +1340,7 @@ tstyles.append(new_ts)
 tstyles.set('count', str(len(tstyles)))
 b.touch('xl/styles.xml')
 for t in info[('MOE-MOA', '_tables')]:
-    if t.get('code') == 'BET.CUI':
+    if t.get('code') in SUPPR:
         continue
     tx = b.xml(t['part'])
     tsi = tx.find(N + 'tableStyleInfo')
