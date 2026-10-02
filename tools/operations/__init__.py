@@ -18,4 +18,6 @@ def detecter(texte_page_de_garde):
         return 'honguemare'
     if 'DUCLAIR' in t:
         return 'duclair_mit'
+    if 'BENOUVILLE' in t:
+        return 'benouville_psc'
     return None

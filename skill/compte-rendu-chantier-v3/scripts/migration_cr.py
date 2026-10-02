@@ -80,6 +80,8 @@ def attente_objet(d):
     sp = getattr(OPE, 'objet_special', lambda x: None)(raw)
     if sp:
         return sp
+    if getattr(OPE, 'mention_speciale', lambda x: None)(raw):
+        return None                            # valeur propre à l'opération : mention écrite par ailleurs
     m = re.match(r'^en att?e?n?te\s*(.*)$', raw.replace('attnte', 'attente').replace('Attnte', 'Attente'), re.I)
     if m and m.group(1).strip().upper() in ATTENTE_PERTE and not re.match(r'^\d{2}/\d{2}/\d{4}$', m.group(1).strip()):
         return m.group(1).strip()
@@ -648,6 +650,37 @@ for sh in MIGR_SHEETS:
                         if cb[0].get('s'):
                             nb.set('s', cb[0].get('s'))
                         cb[0].addnext(nb)
+    # notes de cellule : suivent leur cellule (colonne + 1, lignes renumérotées) ; sinon une note posée sur une
+    # observation se retrouve sur le N° (BENOUVILLE 02!A39 « 7mm », 02/10/2026)
+    cp = b.rel_target(part, 'comments')
+    if cp:
+        for cm in b.xml(cp).iter(N + 'comment'):
+            ref = cm.get('ref')
+            r = int(re.sub(r'\D', '', ref))
+            nref = '%s%d' % (col_letter(col_index(ref) + 1), new_of.get(r, r))
+            report.setdefault('notes_deplacees', []).append([sh, ref, nref])
+            cm.set('ref', nref)
+        b.touch(cp)
+        vp = b.notes_vml(part)
+        if vp:
+            def _shape(m):
+                r0, c0 = int(m.group(2)), int(m.group(4))
+                dr = new_of.get(r0 + 1, r0 + 1) - (r0 + 1)
+                t = m.group(0)
+                t = re.sub(r'(<x:Row>\s*)\d+', lambda x: '%s%d' % (x.group(1), r0 + dr), t, count=1)
+                t = re.sub(r'(<x:Column>\s*)\d+', lambda x: '%s%d' % (x.group(1), c0 + 1), t, count=1)
+
+                def _anc(x):
+                    v = [int(n) for n in x.group(2).split(',')]
+                    v[0] += 1
+                    v[4] += 1
+                    v[2] += dr
+                    v[6] += dr
+                    return x.group(1) + ', '.join(str(n) for n in v)
+                return re.sub(r'(<x:Anchor>\s*)([\d,\s]+)', _anc, t, count=1)
+            txt = b.data[vp].decode('utf-8', 'replace')
+            b.data[vp] = re.sub(r'<v:shape\b(?:(?!</v:shape>).)*?(<x:Row>\s*(\d+)\s*</x:Row>)\s*(<x:Column>\s*(\d+)\s*</x:Column>).*?</v:shape>',
+                                _shape, txt, flags=re.S).encode('utf-8')
     dim = ws.find(N + 'dimension')
     dim.set('ref', 'A1:%s%d' % (LAST_COL, last))
     for sv in ws.iter(N + 'sheetView'):
@@ -1163,8 +1196,10 @@ for ref, a, z in FIXES_COORD:
 # ================================================================== 6. Page de garde en formules
 DD = lambda e: 'RIGHT("0"&DAY(%s),2)&"/"&RIGHT("0"&MONTH(%s),2)&"/"&YEAR(%s)' % (e, e, e)
 PG = CFG['page_de_garde']
-pg = {PG['titre']: ('"Compte rendu de la réunion de chantier du "&' + DD(PG['date']), PG['valeurs'][0]),
-      PG['prochaine']: (PG['prochaine_formule'].format(d=DD(PG['date'] + '+7'), h=PG['heure']), PG['valeurs'][1])}
+pg = {PG['titre']: (PG.get('titre_formule', '"Compte rendu de la réunion de chantier du "&{d}').format(
+    d=DD(PG['date']), crc=PG.get('crc', '')), PG['valeurs'][0])}
+if PG.get('prochaine'):                    # sinon : prochaine réunion laissée en texte libre (horaires MOA / entreprises…)
+    pg[PG['prochaine']] = (PG['prochaine_formule'].format(d=DD(PG['date'] + '+7'), h=PG['heure']), PG['valeurs'][1])
 for ref, (f, v) in pg.items():
     c = b.cell('Page de garde', ref)
     for ch in list(c):

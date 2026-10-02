@@ -39,7 +39,7 @@ Sans LibreOffice, **le dire à José** dans la réponse et lui demander un coup 
 ## Limites connues
 
 - Classeur à l'**ancien format** (sans colonne N°) : le convertir d'abord (`migration.md`). Opérations déjà
-  configurées : HONGUEMARE, DUCLAIR « LE MIT » (`scripts/operations/`).
+  configurées : HONGUEMARE, DUCLAIR « LE MIT », BENOUVILLE pôle socio-culturel (`scripts/operations/`).
 - Le code d'un tableau encore vide est retrouvé par le Référentiel (colonne G « Titre de section ») ou, pour un lot,
   par le numéro de l'onglet.
 - Le rendu exact d'Excel n'est pas vérifiable dans l'environnement : seul José peut contrôler l'aperçu avant impression.

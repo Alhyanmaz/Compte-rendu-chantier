@@ -186,6 +186,8 @@ Fichier corrigé par José dans Excel : 69 lignes modifiées, 2 lignes ajoutées
 | Ligne en gras entre deux sous-sections | Traits épais de haut de page de l'ancienne mise en page, restés en milieu de page (MOE-MOA lignes 73, 115, 154, 174) : supprimés. |
 | Traits épais entre observations (charpente) | Bug de migration (modèle de bordure pris sur 03-002, qui avait un trait moyen) : `normaliser_bordures` ramène au trait fin tout trait épais hors en-tête, ligne 1 et ÉTUDES / TRAVAUX, à chaque intégration et remoulinage. |
 | Pages blanches en fin de CR | Onglet Photos sans zone d'impression (Excel imprimait A1:N88) : zone limitée au contenu (texte et images), recalculée à chaque passage. |
+| Page vide en fin d'onglet (BENOUVILLE lot 06, 02/10/2026) | Lignes à hauteur non fixée (en-têtes, ÉTUDES / TRAVAUX) recalculées un peu plus hautes par le tableur : `paginer.py` leur compte 10 % de plus. Sur HONGUEMARE CRC-16 : 3 sauts déplacés, même nombre de pages (51). |
+| Notes de cellule à la migration | Elles suivent leur cellule quand la colonne N° est insérée (BENOUVILLE : note « 7mm » de 02-033, restée sur le N°, ramenée sur l'observation). |
 
 ## Ordre du jour de la réunion suivante (02/10/2026, proposition de Claude à valider)
 

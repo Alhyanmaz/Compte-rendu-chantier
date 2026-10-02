@@ -15,7 +15,8 @@ Chaîne hebdomadaire (CR précédent annoté par José en réunion + transcripti
    lignes soldées au CR précédent, remise en noir du rouge et du gris, mises à jour (« Au JJ/MM/AAAA … » en rouge dans
    HISTORIQUE), nouvelles lignes (N° suivant, bordures du classeur, insertion de lignes si la réserve manque),
    relances automatiques, texte condensé recalculé, sauts de page.
-2. `python ajuster_hauteurs.py ETAPE1.xlsx FINAL.xlsx` (lance ensuite `paginer.py` : sauts de page).
+2. `python ajuster_hauteurs.py ETAPE1.xlsx FINAL.xlsx` (lance ensuite `paginer.py` : sauts de page ;
+   `CR_SAUT_TRAVAUX=0` : pas de saut avant TRAVAUX, variante proposée pour BENOUVILLE).
 
 Relecture (José corrige le CR livré dans Excel avant diffusion, puis le redonne avec la version livrée) :
 

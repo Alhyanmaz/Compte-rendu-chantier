@@ -76,7 +76,10 @@ def paginer(sh):
             return defaut
         if row.get('hidden') in ('1', 'true'):
             return 0.0
-        return float(row.get('ht', defaut))
+        ht = float(row.get('ht', defaut))
+        # hauteur non fixée (en-têtes, ÉTUDES / TRAVAUX) : le tableur la recalcule, souvent un peu plus haute
+        # (lot 06 BENOUVILLE, 02/10/2026 : page blanche en fin d'onglet) -> 10 % de marge
+        return ht if row.get('customHeight') in ('1', 'true') else ht * 1.10
 
     visibles = [r for r in range(1, last + 1) if h(r) > 0]
 
@@ -101,7 +104,9 @@ def paginer(sh):
                     blocs.setdefault(r, nxt)
     # sauts imposés : avant chaque TRAVAUX qui a une observation visible
     imposes = set()
-    for r, it in info.items():
+    # CR_SAUT_TRAVAUX=0 : TRAVAUX à la suite d'ÉTUDES (titre toujours gardé avec sa 1re ligne) ; essai BENOUVILLE
+    # 02/10/2026 : 47 pages au lieu de 59 (original 42). Par défaut, saut avant TRAVAUX (règle en vigueur).
+    for r, it in ([] if os.environ.get('CR_SAUT_TRAVAUX') == '0' else info.items()):
         if it['kind'] == 'section' and it['section'] == 'TRAVAUX':
             t = [t for t in tabs if t['name'] == it['table']][0]
             if any(info[k]['kind'] == 'obs' and not info[k]['hidden'] for k in range(r + 1, t['r1'] + 1)):

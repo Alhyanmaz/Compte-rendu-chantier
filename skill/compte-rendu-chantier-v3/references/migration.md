@@ -1,7 +1,7 @@
 # Convertir un classeur à l'ancien format (sans colonne N°)
 
 À faire **une fois par opération**, avant le premier CR au nouveau format (fait pour HONGUEMARE le 29/09/2026 et
-DUCLAIR « LE MIT » le 02/10/2026). Le résultat est une **copie de test** que José valide avant de l'adopter.
+DUCLAIR « LE MIT » et BENOUVILLE le 02/10/2026). Le résultat est une **copie de test** que José valide avant de l'adopter.
 
 ## 1. Analyser (lecture seule, openpyxl)
 
@@ -35,6 +35,11 @@ python ajuster_hauteurs.py etape1.xlsx OPERATION_CR_ACAU_CRC-NN_NOUVEAU_FORMAT.x
 Contrôles de `environnement.md`, plus : nombre d'observations visibles / masquées, aucune erreur de formule,
 pages (comparer au PDF d'origine), rendu de quelques pages. Puis un essai d'intégration fictive (une mise à jour,
 une ligne neuve dans un tableau vide) et de remoulinage, pour vérifier que les outils hebdomadaires lisent le classeur.
+
+Pages : si le saut avant chaque TRAVAUX alourdit beaucoup le CR (BENOUVILLE : 59 pages contre 42), produire aussi la
+variante `CR_SAUT_TRAVAUX=0 python paginer.py FINAL.xlsx VARIANTE.xlsx` (TRAVAUX à la suite d'ÉTUDES, titre gardé
+avec sa 1re ligne) et laisser José choisir. Notes de cellule déjà présentes dans l'original : elles suivent leur
+cellule ; les signaler (elles devront être citées au CR suivant).
 
 ## 4. Rapport à José
 
