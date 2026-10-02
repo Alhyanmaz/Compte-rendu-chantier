@@ -764,6 +764,13 @@ for sh in MIGR_SHEETS:
                 cC.set('s', b.cell(sh, 'C%d' % new_of[ref_c], False).get('s'))
             set_cell_empty(cC)
             etree.SubElement(cC, N + 'v').text = str((nd - EPOCH).days)
+            # POUR LE en formule « =C+N » : figée à sa valeur d'origine, sinon l'échéance glisse avec ABORDÉ LE
+            # (défaut constaté le 02/10/2026 sur 03-035 : 29/09/2026 devenu 30/06/2026 au recalcul d'Excel)
+            cD = cell_in_row(row, 'D')
+            fD = cD.find(N + 'f')
+            if fD is not None and re.search(r'\bC\d+\b', fD.text or '') and cD.find(N + 'v') is not None:
+                cD.remove(fD)
+                report['anomalies_corrigees'].append([sh, it['num'], 'POUR LE figée à sa valeur (formule liée à ABORDÉ LE)'])
             report['anomalies_corrigees'].append([sh, it['num'], 'ABORDÉ LE %s → %s (décision de José ; date retirée du sujet)'
                                                   % (it['B'].strftime('%d/%m/%Y') if isinstance(it['B'], datetime.datetime) else 'vide', nd.strftime('%d/%m/%Y'))])
             it['B'] = nd

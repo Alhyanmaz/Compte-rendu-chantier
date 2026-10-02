@@ -163,6 +163,21 @@ Remplace le tableau de routage (deux relectures jugées trop longues). Détail e
 | Repère bleu | Retiré au remoulinage du CRC-16 (il n'existait pas dans le classeur d'origine). |
 | Skill | Avant de créer une ligne : même objet chez le même destinataire → mise à jour de la ligne existante, ou [?] en cas d'hésitation. Interface entre onglets : renvoi dans ROUTAGE seulement. Jamais de « Doublon » automatique (traitement manuel par José). |
 
+## Premier remoulinage réel (CRC-16, 02/10/2026)
+
+Fichier corrigé par José dans Excel : 69 lignes modifiées, 2 lignes ajoutées, 3 supprimées, aucun faux positif dû à l'enregistrement par Excel. Ajustements de `relire_cr.py` :
+
+| Cas rencontré | Traitement |
+|---|---|
+| Ajouts datés d'un autre jour que la réunion (25/09, 30/09, 02/10) ou sans « Au » | **Tout texte ajouté par José est rouge** (comparaison avec la version livrée), quelle que soit la date ; les dates postérieures à la réunion sont listées dans le rapport, conservées telles quelles. |
+| Correction faite dans OBSERVATIONS | **Reportée dans HISTORIQUE** (recherche par le contexte, espaces multiples tolérés), puis texte recalculé ; si le report est impossible, texte corrigé conservé et signalé. |
+| Ajout rouge au milieu d'une remarque | Couleurs conservées run par run dans le texte condensé (`cr_texte.condense`). |
+| PM saisi dans POUR LE | Déplacé dans FAIT LE (décision du 29/09/2026), signalé. |
+| Ligne neuve commençant par « Au JJ/MM/AAAA » | Date retirée (elle est dans ABORDÉ LE). |
+| Valeur recalculée par Excel sur une formule inchangée | Pas une modification de José. |
+| Lignes supprimées (01-005, 02-055, 03-042) | Signalées ; N° non réutilisés. Préférer masquer (l'historique est perdu). |
+| 03-035 | POUR LE (formule « ABORDÉ LE + 14 ») avait glissé au 30/06/2026 après la correction d'ABORDÉ LE ; **figée au 29/09/2026** (échéance du CRC-15). `migration_cr.py` corrigé : POUR LE figée quand ABORDÉ LE est corrigé. |
+
 ## En attente
 
 - Validation du CRC-16 par José.

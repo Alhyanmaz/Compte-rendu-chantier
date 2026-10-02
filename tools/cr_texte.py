@@ -111,7 +111,16 @@ def condense(runs, abord=None, open_=True, date_cr=None):
     for k, (st, en, dt) in enumerate(segs):
         stop = segs[k + 1][0] if k + 1 < len(segs) else len(text)
         body = text[en:stop].strip().lstrip(':').strip()
-        pieces.append((st, dt, body))
+        b0, b1 = en, stop                          # bornes du corps dans le texte (couleurs des runs conservées)
+        while b0 < b1 and text[b0].isspace():
+            b0 += 1
+        while b0 < b1 and text[b0] == ':':
+            b0 += 1
+        while b0 < b1 and text[b0].isspace():
+            b0 += 1
+        while b1 > b0 and text[b1 - 1].isspace():
+            b1 -= 1
+        pieces.append((st, dt, body, b0, b1))
     head_end = segs[0][0]
     head = text[:head_end].strip()
     head_pos = 0
@@ -152,8 +161,10 @@ def condense(runs, abord=None, open_=True, date_cr=None):
         out.append((plain_rpr(rpr_at(runs, omitted[0][1][0])), '\n[...]'))
     for kind, e in shown:
         if kind == 'S':
-            st, dt, body = e
-            out.append((plain_rpr(rpr_at(runs, st)), '\n→ Au %s : %s' % (full_date(dt), body)))
+            st, dt, body, b0, b1 = e
+            # corps repris run par run : un ajout en rouge au milieu d'une remarque reste rouge (02/10/2026)
+            out.append((plain_rpr(rpr_at(runs, st)), '\n→ Au %s : ' % full_date(dt)))
+            out += [(plain_rpr(rp), t) for rp, t in slice_runs(runs, b0, b1)]
         else:
             last = e[-1]
             txt = '\n→ Relancé %d fois, dernière le %s' % (len(e), full_date(last[1]))

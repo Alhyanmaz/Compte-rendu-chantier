@@ -22,6 +22,7 @@ Ce que fait le script (docs/decisions-HONGUEMARE.md, « Mode relecture ») :
 """
 import copy
 import datetime
+import difflib
 import json
 import os
 import re
@@ -43,7 +44,7 @@ if not isinstance(_pg, datetime.datetime):
 K.init(Book(CORRIGE), _pg)
 from cr_classeur import *  # noqa: E402,F401,F403
 
-report = {'date_cr': DSTR, 'modifiees': [], 'nouvelles': [], 'alertes': []}
+report = {'date_cr': DSTR, 'modifiees': [], 'nouvelles': [], 'alertes': [], 'dates_posterieures': []}
 
 
 # ------------------------------------------------------------------ lecture comparée (valeurs et formules)
@@ -72,12 +73,17 @@ def snapshot(path):
                 for col in 'BCDEF':
                     v, f = ws['%s%d' % (col, r)].value, wsf['%s%d' % (col, r)].value
                     d[col] = (norm_txt(v) if col in 'BF' or isinstance(v, str) else v, norm_f(f))
+                    if col in 'BF':
+                        d['raw' + col] = '' if v is None else str(v).replace('\r\n', '\n')
                 out.setdefault((ws.title, a.strip()), d)
     return out
 
 
 def differe(p, q):
-    """p, q : (valeur, formule). Valeur en cache absente d'un côté : on compare les formules."""
+    """p, q : (valeur, formule). Formule identique (au décalage de ligne près) : pas une modification de José,
+    même si Excel a recalculé une autre valeur. Valeur en cache absente d'un côté : on compare les formules."""
+    if isinstance(p[1], str) and p[1].startswith('=') and p[1] == q[1]:
+        return False
     if p[0] is None or q[0] is None:
         return p[1] != q[1]
     return p[0] != q[0]
@@ -86,28 +92,116 @@ def differe(p, q):
 ref = snapshot(LIVRE)
 cur = snapshot(CORRIGE)
 for (sh, num) in sorted(set(ref) - set(cur)):
-    report['alertes'].append('%s %s : ligne absente du fichier corrigé (supprimée ?)' % (sh, num))
+    report['alertes'].append('%s %s : ligne supprimée dans le fichier corrigé (N° non réutilisé ; historique perdu)'
+                             % (sh, num))
 
 
-def today_red(runs):
-    """Les segments « Au JJ/MM/AAAA » datés du jour du CR passent en rouge (jusqu'au segment suivant)."""
+def red_spans(runs, old_text=None):
+    """Plages à mettre en rouge : segments « Au JJ/MM/AAAA » datés du jour du CR, et tout texte ajouté par José
+    par rapport à la version livrée (quelle que soit la date qu'il a écrite : 25/09, 30/09, 02/10…)."""
     text = ''.join(t for _, t in runs)
     segs = [(m.start(), full_date(m.group(1))) for m in AU.finditer(text)]
-    spans = []
-    for k, (st, d) in enumerate(segs):
-        if d == DSTR:
-            spans.append((st, segs[k + 1][0] if k + 1 < len(segs) else len(text)))
+    spans = [(st, segs[k + 1][0] if k + 1 < len(segs) else len(text)) for k, (st, d) in enumerate(segs) if d == DSTR]
+    if old_text is not None:
+        sm = difflib.SequenceMatcher(None, old_text, text, autojunk=False)
+        spans += [(j1, j2) for tag, i1, i2, j1, j2 in sm.get_opcodes()
+                  if tag in ('insert', 'replace') and text[j1:j2].strip()]
+    return spans
+
+
+def paint(runs, spans, color=RED):
     if not spans:
-        return runs, False
-    cuts = sorted({0, len(text)} | {x for s in spans for x in s})
+        return runs
+    text = ''.join(t for _, t in runs)
+    cuts = sorted({0, len(text)} | {x for sp in spans for x in sp})
     out = []
     for a, z in zip(cuts, cuts[1:]):
         for rpr, t in slice_runs(runs, a, z):
             rpr = copy.deepcopy(rpr)
-            if any(s <= a < e for s, e in spans):
-                _set_color(rpr, RED)
+            if any(s0 <= a < e0 for s0, e0 in spans):
+                _set_color(rpr, color)
             out.append((rpr, t))
-    return out, True
+    return out
+
+
+def replace_span(runs, a, z, new, color=RED):
+    """Remplace text[a:z] par new (texte ajouté en rouge) en gardant la mise en forme du reste."""
+    text = ''.join(t for _, t in runs)
+    out = slice_runs(runs, 0, a)
+    if new:
+        rpr = copy.deepcopy(runs[0][0] if not out else out[-1][0])
+        _set_color(rpr, color)
+        out.append((rpr, new))
+    return out + slice_runs(runs, z, len(text))
+
+
+def _ctx(s, a, z, side, n):
+    """Contexte d'une modification, limité au segment (pas de « → » ni de saut de ligne : B et F diffèrent là)."""
+    c = s[max(0, a - n):a] if side == 'g' else s[z:z + n]
+    cut = [i for i, ch in enumerate(c) if ch in '\n→']
+    if side == 'g':
+        return c[cut[-1] + 1:] if cut else c
+    return c[:cut[0]] if cut else c
+
+
+def trouver(f, pat):
+    """Occurrences de pat dans f, les suites d'espaces comptant pour un seul (José tape souvent deux espaces)."""
+    toks = pat.split()
+    if not toks:
+        return []
+    rx = r'\s+'.join(re.escape(t) for t in toks)
+    if pat[:1].isspace():
+        rx = r'\s+' + rx
+    if pat[-1:].isspace():
+        rx += r'\s+'
+    return [(m.start(), m.end()) for m in re.finditer(rx, f)]
+
+
+def propager(old_b, new_b, f_runs):
+    """Reporte dans HISTORIQUE les corrections faites par José dans OBSERVATIONS (le texte imprimé est recalculé
+    depuis HISTORIQUE : sans report, elles seraient perdues). Renvoie (runs, nb reportées, nb impossibles)."""
+    sm = difflib.SequenceMatcher(None, old_b, new_b, autojunk=False)
+    ok = ko = 0
+    for tag, i1, i2, j1, j2 in reversed(sm.get_opcodes()):
+        if tag == 'equal':
+            continue
+        o, n = old_b[i1:i2], new_b[j1:j2]
+        if not o.strip() and not n.strip():
+            continue                                   # mise en page seule (espaces, sauts de ligne)
+        if any(x in o + n for x in ('→', '[...]')):
+            continue                                   # lignes calculées (relances, « [...] ») : rien à reporter
+        if not n.strip():
+            n = ''
+        f = ''.join(t for _, t in f_runs)
+        done = False
+        for k in (25, 12, 6):
+            gn, dn = _ctx(new_b, j1, j2, 'g', k), _ctx(new_b, j1, j2, 'd', k)
+            if n and (gn.strip() or dn.strip()) and len(trouver(f, gn + n + dn)) == 1:
+                done = True                            # déjà reporté par José dans HISTORIQUE
+                break
+            if not n and gn.strip() and dn.strip() and len(trouver(f, gn + dn)) == 1:
+                done = True                            # suppression déjà faite dans HISTORIQUE
+                break
+            g, d = _ctx(old_b, i1, i2, 'g', k), _ctx(old_b, i1, i2, 'd', k)
+            if o and not (g.strip() or d.strip() or len(o) >= 8):
+                continue
+            if not o and not (g.strip() or d.strip()):
+                continue
+            occ = trouver(f, g + o + d) if o.strip() else trouver(f, g + d)
+            if len(occ) == 1:
+                a0, z0 = occ[0]
+                if o.strip():                          # remplacement / suppression : bornes de o dans l'occurrence
+                    sub = f[a0:z0]
+                    oo = [x for x in trouver(sub, o)]
+                    pos0, pos1 = a0 + oo[0][0], a0 + oo[0][1]
+                else:                                  # insertion : après le contexte gauche
+                    pos0 = pos1 = a0 + (trouver(f[a0:z0], g)[0][1] if g.strip() else 0)
+                f_runs = replace_span(f_runs, pos0, pos1, n)
+                done = True
+                break
+        ok += done
+        ko += not done
+    return f_runs, ok, ko
 
 
 def set_statut(c, v):
@@ -151,6 +245,10 @@ for sh in SHEETS:
             runs = K.runs_of(cB) or K.runs_of(cF)
             for rp, _ in runs:
                 _set_color(rp, RED)
+            ab0 = from_serial(number_of(cC)) if number_of(cC) is not None else DATE
+            res0 = condense(runs, ab0, True, date_cr=DATE)     # une ligne neuve ne commence pas par « Au [date] »
+            if res0 and res0[0]:
+                runs = res0[0]
             set_si(cB, si_new(runs))
             set_si(cF, si_new([(copy.deepcopy(rp), x) for rp, x in runs]))
             if number_of(cC) is None:
@@ -158,6 +256,11 @@ for sh in SHEETS:
             for c in (cC, cD):
                 if number_of(c) is not None:
                     restyle(c, color=RED)
+            if text_of(cD).strip().upper() == 'PM':       # PM saisi dans POUR LE : c'est un statut de FAIT LE
+                clear(cD)
+                if not text_of(cE).strip() and number_of(cE) is None:
+                    set_si(cE, si_new([(None, 'PM')]))
+                report['alertes'].append('%s ligne %d : PM déplacé de POUR LE vers FAIT LE' % (sh, r))
             e = text_of(cE).strip()
             if e and number_of(cE) is None:
                 set_statut(cE, statut_canonique(e))
@@ -183,6 +286,12 @@ for sh in SHEETS:
         if not ch:
             continue
         report['modifiees'].append([sh, num, ''.join(sorted(ch))])
+        if text_of(cD).strip().upper() == 'PM':           # PM saisi dans POUR LE (habitude V1) : c'est un statut
+            clear(cD)
+            if not text_of(cE).strip() and number_of(cE) is None:
+                set_statut(cE, 'PM')
+            ch |= {'D', 'E'}
+            report['alertes'].append('%s %s : PM déplacé de POUR LE vers FAIT LE' % (sh, num))
         e = text_of(cE).strip()
         if 'E' in ch and e and number_of(cE) is None and statut_canonique(e) != e:
             set_statut(cE, statut_canonique(e))
@@ -200,12 +309,25 @@ for sh in SHEETS:
         base_col = GREY if grey else BLACK
         open_ = number_of(cE) is None and e_now not in TERMINAUX | {'PM'}
         old_b = K.runs_of(cB)
-        if 'F' in ch:
-            f_runs, _ = today_red(K.runs_of(cF))
+        b_ok = True
+        if 'B' in ch and p is not None:
+            f_new, nok, nko = propager(p['rawB'], q['rawB'], K.runs_of(cF))
+            if nok:
+                set_si(cF, si_new(f_new))
+                ch.add('F')
+            if nko:
+                b_ok = False
+                report['alertes'].append('%s %s : correction d\'OBSERVATIONS impossible à reporter dans HISTORIQUE ; '
+                                         'texte imprimé conservé tel que corrigé, à reporter à la main dans HISTORIQUE'
+                                         % (sh, num))
+        if 'F' in ch and b_ok:
+            f_runs = paint(K.runs_of(cF), red_spans(K.runs_of(cF), p['rawF'] if p else None))
             set_si(cF, si_new(f_runs))
-            if 'B' in ch:
-                report['alertes'].append('%s %s : OBSERVATIONS et HISTORIQUE modifiés tous les deux ; le texte '
-                                         'imprimé est recalculé depuis HISTORIQUE' % (sh, num))
+            ftxt = ''.join(t for _, t in f_runs)
+            apres = [m.group(1) for m in AU.finditer(ftxt)
+                     if datetime.datetime.strptime(full_date(m.group(1)), '%d/%m/%Y') > DATE]
+            if apres:
+                report['dates_posterieures'].append('%s %s : %s' % (sh, num, ', '.join(sorted(set(apres)))))
             objet = [(rp, x) for rp, x in old_b if x.startswith('\n→ En attente :')]
             ab = number_of(cC)
             res = condense(f_runs, from_serial(ab) if ab else None, open_, date_cr=DATE)
@@ -215,10 +337,10 @@ for sh in SHEETS:
                     runs += recolor_runs(objet, base_col, keep_red=True)
                 set_si(cB, si_new(runs))
         else:
-            if 'B' in ch:
-                report['alertes'].append('%s %s : OBSERVATIONS modifié sans HISTORIQUE ; texte conservé, mais à '
-                                         'reporter dans HISTORIQUE (sinon perdu à la prochaine mise à jour de la '
-                                         'ligne)' % (sh, num))
+            if 'F' in ch:
+                set_si(cF, si_new(paint(K.runs_of(cF), red_spans(K.runs_of(cF), p['rawF'] if p else None))))
+            if 'B' in ch and p is not None:
+                old_b = paint(old_b, red_spans(old_b, p['rawB']))     # texte ajouté par José dans B : rouge
             runs = recolor_runs(old_b, base_col, keep_red=True)
             m = next((i for i, (_, x) in enumerate(runs) if '→ Relancé' in x), None)
             if m is not None:                          # compteur « sans réponse depuis » : retiré si la ligne est soldée
