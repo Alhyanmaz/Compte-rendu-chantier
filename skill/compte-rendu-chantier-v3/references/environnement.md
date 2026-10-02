@@ -38,6 +38,8 @@ Sans LibreOffice, **le dire à José** dans la réponse et lui demander un coup 
 
 ## Limites connues
 
-- Les scripts reconnaissent les tableaux d'intervenants de MOE-MOA et de Concessionnaires par leur titre (`SECTION_CODES` dans `cr_classeur.py`, établi sur HONGUEMARE). Un autre classeur au nouveau format peut demander d'y ajouter ses intitulés.
-- Un classeur à l'**ancien format** (sans colonne N°, ex. DUCLAIR_MIT) doit d'abord être migré. `migration_cr.py` du dépôt a été écrit pour HONGUEMARE et ne s'applique pas tel quel à une autre opération.
+- Classeur à l'**ancien format** (sans colonne N°) : le convertir d'abord (`migration.md`). Opérations déjà
+  configurées : HONGUEMARE, DUCLAIR « LE MIT » (`scripts/operations/`).
+- Le code d'un tableau encore vide est retrouvé par le Référentiel (colonne G « Titre de section ») ou, pour un lot,
+  par le numéro de l'onglet.
 - Le rendu exact d'Excel n'est pas vérifiable dans l'environnement : seul José peut contrôler l'aperçu avant impression.

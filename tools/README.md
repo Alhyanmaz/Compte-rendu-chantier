@@ -2,7 +2,9 @@
 
 Chaîne de production d'une copie migrée (voir `docs/decisions-HONGUEMARE.md`) :
 
-1. `python migration_cr.py SOURCE.xlsx ETAPE1.xlsx rapport.json` : structure, N°, texte, statuts, MFC, onglets masqués.
+1. `python migration_cr.py SOURCE.xlsx ETAPE1.xlsx rapport.json [operation]` : structure, N°, texte, statuts, couleurs,
+   MFC, onglets masqués. Réglages propres à chaque opération dans `operations/` (honguemare, duclair_mit), détectés
+   d'après la page de garde ; méthode pour une nouvelle opération : `skill/compte-rendu-chantier-v3/references/migration.md`.
 2. `python ajuster_hauteurs.py ETAPE1.xlsx FINAL.xlsx` : hauteurs de ligne pour que tout le texte soit visible dans Excel.
 
 Chaîne hebdomadaire (CR précédent annoté par José en réunion + transcription audio, voir `docs/memo-notes.md`) :

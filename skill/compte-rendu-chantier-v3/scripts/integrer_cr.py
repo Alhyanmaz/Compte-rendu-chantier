@@ -37,7 +37,7 @@ import sys
 
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from cr_xml import Book, _set_color, _rpr_from_font  # noqa: E402
+from cr_xml import Book, _set_color, _rpr_from_font, col_letter  # noqa: E402
 import cr_classeur as K  # noqa: E402
 
 BASE, OPS, OUT, REPORT = sys.argv[1:5]
@@ -117,11 +117,13 @@ def insert_rows(sh, p, n, tmpl_r):
 
 
 # ================================================================== 1. page de garde
-pg = b.ws('Page de garde')
-for row in pg.find(N + 'sheetData'):
-    if row.get('r') == '22':
-        set_si(cell(row, 'A'), si_new([(_rpr_from_font(b._font_of(cell(row, 'A').get('s'))), spec['crc'])]))
-        set_num(cell(row, 'B'), serial(DATE))
+pg = b.ws('Page de garde')     # cellule « CRC-NN » (A22 à HONGUEMARE, A21 à DUCLAIR) ; la date est à sa droite
+c_crc = next((c for c in pg.iter(N + 'c') if CRC_RE.match(text_of(c).strip())), None)
+if c_crc is None:
+    raise SystemExit('Page de garde : cellule « CRC-NN » introuvable')
+row_pg = c_crc.getparent()
+set_si(c_crc, si_new([(_rpr_from_font(b._font_of(c_crc.get('s'))), spec['crc'])]))
+set_num(cell(row_pg, col_letter(col_index(c_crc.get('r')) + 1)), serial(DATE))
 b.touch(b.sheets['Page de garde'])
 
 SHEETS = obs_sheets()

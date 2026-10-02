@@ -12,17 +12,33 @@ from cr_xml import N
 
 # ------------------------------------------------------------------ texte : typos et condensation
 TYPO = re.compile(r'\b(\d{2})/(\d{2})(20\d{2})\b')
-TYPO5 = re.compile(r'\b(\d{2})/(\d{2})/(202)(\d)(\d)\b')   # « 08/09/20256 » -> 2026 (interprétation)
+TYPO5 = re.compile(r'\b(\d{2})/(\d{2})/(202)(\d)(\d)\b')   # « 08/09/20256 » : un chiffre de trop (voir _annee5)
 # « Au » / « AU » seulement : un « au » minuscule est du texte (« visite au 20/07/2026 »), pas une mise à jour
 AU = re.compile(r'(?:(?<=\s)|(?<=\.)|^)(?:Au|AU)\s+(\d{1,2}/\d{1,2}/(?:\d{4}|\d{2}))(?![\d])')
 BARE = re.compile(r'^[\s.,;:!-]*(relance|urgent|rappel)[\s.,;:!-]*$', re.I)
 
 
-def fix_runs(runs):
+def _annee5(m, date_cr):
+    """« JJ/MM/202XY » (un chiffre de trop) : 202X ou 202Y, la lecture la plus proche de la date du CR (02/10/2026 ;
+    HONGUEMARE « 20256 » -> 2026 comme avant, DUCLAIR « 20255 » -> 2025 et non plus 2026)."""
+    cands = sorted({int('202' + m.group(4)), int('202' + m.group(5))})
+    if date_cr is not None and len(cands) > 1:
+        def ecart(y):
+            try:
+                return abs((datetime.datetime(y, int(m.group(2)), int(m.group(1))) - date_cr).days)
+            except ValueError:
+                return 10 ** 6
+        y = min(cands, key=ecart)
+    else:
+        y = 2026 if 2026 in cands else cands[-1]
+    return '%s/%s/%d' % (m.group(1), m.group(2), y)
+
+
+def fix_runs(runs, date_cr=None):
     out, fixes = [], []
     for rpr, t in runs:
         t2 = TYPO.sub(r'\1/\2/\3', t)
-        t3 = TYPO5.sub(lambda m: '%s/%s/2026' % (m.group(1), m.group(2)), t2)   # « 20256 », « 20265 » : année du chantier
+        t3 = TYPO5.sub(lambda m: _annee5(m, date_cr), t2)                     # « 20256 », « 20265 », « 20255 »
         if t3 != t:
             fixes += ['%s/%s%s' % x for x in TYPO.findall(t)]
             fixes += ['%s/%s/%s%s%s' % x for x in TYPO5.findall(t2)]

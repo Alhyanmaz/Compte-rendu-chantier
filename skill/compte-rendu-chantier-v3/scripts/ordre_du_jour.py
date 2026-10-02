@@ -3,7 +3,7 @@
 
 Usage : python ordre_du_jour.py CR_FINAL.xlsx ODJ.docx [--date AAAA-MM-JJ] [--heure 9H00] [--lieu "…"] [--json ODJ.json]
 
-Date et heure par défaut : Page de garde (B22 + 7 jours, B23). Lieu : Page de garde B27 s'il est rempli.
+Date et heure par défaut : Page de garde (date du CR + 7 jours, heure sous la date). Lieu : ligne « LIEU » s'il est rempli.
 Points retenus (observations visibles, non soldées, hors PM) :
   1. prioritaires : FAIT LE = URGENT ou Retard ;
   2. à traiter, par intervenant dans l'ordre du CR : POUR LE au plus tard le jour de la réunion (ou Relance sans
@@ -314,11 +314,12 @@ def main():
     ap.add_argument('--json')
     a = ap.parse_args()
     pg = openpyxl.load_workbook(a.cr, data_only=True)['Page de garde']
-    crc, date_prec = str(pg['A22'].value).strip(), pg['B22'].value
+    refs = K.page_de_garde_ws(pg)                 # « CRC-NN » repéré (A22 à HONGUEMARE, A21 à DUCLAIR)
+    crc, date_prec = str(pg[refs['crc']].value).strip(), pg[refs['date']].value
     date_reunion = datetime.datetime.strptime(a.date, '%Y-%m-%d') if a.date else date_prec + datetime.timedelta(days=7)
-    heure = a.heure or str(pg['B23'].value or '').strip() or 'heure à préciser'
-    lieu = a.lieu or (str(pg['B27'].value).strip() if pg['B27'].value else '')
-    operation = ' '.join(str(pg['A4'].value or '').split())
+    heure = a.heure or str(pg[refs['heure']].value or '').strip() or 'heure à préciser'
+    lieu = a.lieu or (' '.join(str(pg[refs['lieu']].value).split()) if refs.get('lieu') and pg[refs['lieu']].value else '')
+    operation = refs['operation']
     groupes, points, conv = lire(a.cr, date_reunion)
     docx(a.out, operation, crc, date_prec, date_reunion, heure, lieu, groupes, points, conv)
     resume = {r: len([p for p in points if p['rubrique'] == r]) for r in ('prioritaire', 'echeance', 'attente')}

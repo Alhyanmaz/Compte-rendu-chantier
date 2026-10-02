@@ -31,6 +31,7 @@ def init(book, date):
     b, DATE, DSTR = book, date, date.strftime('%d/%m/%Y')
     b.formulas_added = True
     _xf.clear()
+    _titres.clear()
     return b
 
 
@@ -264,6 +265,27 @@ def tables_of(sh):
     return sorted(res, key=lambda x: x['r0'])
 
 
+_titres = {}
+
+
+def titres_referentiel():
+    """Référentiel, colonne G (« Titre de section ») -> code ; sert aux tableaux encore vides (02/10/2026)."""
+    key = id(b)
+    if key not in _titres:
+        m = {}
+        if 'Référentiel' in b.sheets:
+            for row in b.ws('Référentiel').find(N + 'sheetData'):
+                r = int(row.get('r'))
+                if r < 5:
+                    continue
+                cA = row.find(N + 'c[@r="A%d"]' % r)
+                cG = row.find(N + 'c[@r="G%d"]' % r)
+                if cA is not None and cG is not None and text_of(cG).strip():
+                    m[' '.join(text_of(cG).lower().split())] = text_of(cA).strip()
+        _titres[key] = m
+    return _titres[key]
+
+
 def model(sh):
     ws = b.ws(sh)
     rows = {int(r.get('r')): r for r in ws.find(N + 'sheetData')}
@@ -280,10 +302,14 @@ def model(sh):
         if code is None:                          # tableau sans observation : titre au-dessus du tableau
             for rr in range(t['r0'] - 1, 0, -1):
                 if rr in rows:
-                    tx = ' '.join(text_of(c) for c in rows[rr]).strip().lower()
+                    tx = ' '.join(text_of(c) for c in rows[rr]).strip()
                     if tx:
-                        code = next((cd for k, cd in SECTION_CODES if k in tx), None)
+                        code = titres_referentiel().get(' '.join(tx.lower().split()))
+                        if code is None:
+                            code = next((cd for k, cd in SECTION_CODES if k in tx.lower()), None)
                         break
+        if code is None and re.match(r'^\d{2}', sh):  # onglet de lot sans observation : code = numéro du lot
+            code = sh[:2]
         t['code'] = code
         for rr in range(t['r0'] + 1, t['r1'] + 1):
             row = rows.get(rr)
@@ -702,12 +728,52 @@ def zone_photos():
     while k:
         k, m = divmod(k - 1, 26)
         col = chr(65 + m) + col
-    ref = "'%s'!$A$1:$%s$%d" % (sh, col, last_r)
     dns = wbx.find(N + 'definedNames')
     idx = str(names.index(sh))
     e = next((x for x in dns if x.get('name') == '_xlnm.Print_Area' and x.get('localSheetId') == idx), None)
     if e is None:
         e = etree.SubElement(dns, N + 'definedName', name='_xlnm.Print_Area', localSheetId=idx)
+    else:                                          # zone posée à la main (ex. A1:B16) : jamais réduite
+        m = re.search(r'\$([A-Z]+)\$(\d+)\s*$', e.text or '')
+        if m:
+            last_r = max(last_r, int(m.group(2)))
+            last_c = max(last_c, col_index(m.group(1) + '1'))
+            col = ''
+            k = last_c
+            while k:
+                k, m2 = divmod(k - 1, 26)
+                col = chr(65 + m2) + col
+    ref = "'%s'!$A$1:$%s$%d" % (sh, col, last_r)
     e.text = ref
     b.touch('xl/workbook.xml')
     return ref
+
+
+# ------------------------------------------------------------------ page de garde (02/10/2026)
+CRC_RE = re.compile(r'^CRC-\d+$')
+
+
+def page_de_garde_ws(ws):
+    """Page de garde lue avec openpyxl : repère la cellule « CRC-NN » (A22 à HONGUEMARE, A21 à DUCLAIR) et en
+    déduit les autres. Renvoie un dict de références : crc, date (à droite), heure (dessous), lieu, operation."""
+    crc = None
+    for row in ws.iter_rows():
+        for c in row:
+            if isinstance(c.value, str) and CRC_RE.match(c.value.strip()):
+                crc = c
+                break
+        if crc is not None:
+            break
+    if crc is None:
+        raise SystemExit('Page de garde : cellule « CRC-NN » introuvable')
+    r, k = crc.row, crc.column
+    out = {'crc': crc.coordinate, 'date': ws.cell(r, k + 1).coordinate, 'heure': ws.cell(r + 1, k + 1).coordinate,
+           'titre': ws.cell(r, k + 2).coordinate}
+    for row in ws.iter_rows(min_row=r + 1, max_col=1):
+        t = str(row[0].value or '').strip().upper()
+        if t.startswith('LIEU'):
+            out['lieu'] = 'B%d' % row[0].row
+    textes = [str(c.value) for row in ws.iter_rows(max_row=r - 1, max_col=3) for c in row
+              if isinstance(c.value, str) and len(c.value.strip()) > 15]
+    out['operation'] = ' '.join(max(textes, key=len).split()) if textes else ''
+    return out

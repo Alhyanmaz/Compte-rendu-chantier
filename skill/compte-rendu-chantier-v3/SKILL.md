@@ -1,6 +1,6 @@
 ---
 name: compte-rendu-chantier-v3
-description: "CR de réunion de chantier (maîtrise d'œuvre) au nouveau format — colonne N°, HISTORIQUE, statuts dans FAIT LE — à partir du CR précédent annoté par José en réunion (notes de cellule Excel) et de la transcription audio de la réunion. Utiliser ce skill dès que José (ACAU) fournit un classeur CR avec des notes de cellule et/ou une transcription de réunion de chantier, demande le CR de la semaine (CRC-NN), ou renvoie un CR corrigé « à remouliner » avant l'édition finale, ou demande l'ordre du jour de la prochaine réunion de chantier — même s'il ne dit pas « skill » ni « V3 ». Remplace les skills compte-rendu-chantier (V1) et compte-rendu-chantier-v2 pour les classeurs au nouveau format (HONGUEMARE). Ne couvre pas les courriers, les CR de conception ni les classeurs à l'ancien format sans colonne N°."
+description: "CR de réunion de chantier (maîtrise d'œuvre) au nouveau format — colonne N°, HISTORIQUE, statuts dans FAIT LE — à partir du CR précédent annoté par José en réunion (notes de cellule Excel) et de la transcription audio de la réunion. Utiliser ce skill dès que José (ACAU) fournit un classeur CR avec des notes de cellule et/ou une transcription de réunion de chantier, demande le CR de la semaine (CRC-NN), ou renvoie un CR corrigé « à remouliner » avant l'édition finale, ou demande l'ordre du jour de la prochaine réunion de chantier — même s'il ne dit pas « skill » ni « V3 ». Remplace les skills compte-rendu-chantier (V1) et compte-rendu-chantier-v2 pour les classeurs au nouveau format (HONGUEMARE, DUCLAIR « LE MIT ») ; convertit aussi un classeur à l'ancien format (sans colonne N°) quand José le demande. Ne couvre pas les courriers ni les CR de conception."
 ---
 
 # CR de chantier — V3 : notes de réunion + audio, relecture dans Excel
@@ -119,6 +119,11 @@ attente d'un tiers (une ligne par organisme) ; visite ; questions diverses ; pr�
 Rien n'est rédigé à la main : si José veut ajouter un point, il le dit, et on l'ajoute dans le Word livré
 (ou au CR, s'il s'agit d'une observation). Signaler dans la réponse le nombre de points par rubrique et la
 date retenue. Le Word utilise la police Denim INK : conseiller à José de l'envoyer en PDF.
+
+## Conversion d'un classeur à l'ancien format
+
+Si le classeur n'a pas de colonne N° (onglets d'observations sans en-tête « N° »), il faut d'abord le convertir :
+méthode et contrôles dans `references/migration.md` (une fois par opération, copie de test validée par José).
 
 ## Ce qui reste à José (ne pas le faire à sa place)
 

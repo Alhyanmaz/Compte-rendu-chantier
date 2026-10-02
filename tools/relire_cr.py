@@ -37,10 +37,11 @@ import cr_classeur as K  # noqa: E402
 
 LIVRE, CORRIGE, OUT, REPORT = sys.argv[1:5]
 
-# ------------------------------------------------------------------ date du CR : page de garde B22 du fichier corrigé
-_pg = openpyxl.load_workbook(CORRIGE, data_only=True)['Page de garde']['B22'].value
+# ------------------------------------------------------------------ date du CR : page de garde du fichier corrigé
+_ws_pg = openpyxl.load_workbook(CORRIGE, data_only=True)['Page de garde']
+_pg = _ws_pg[K.page_de_garde_ws(_ws_pg)['date']].value       # à droite de « CRC-NN » (B22 ou B21 selon l'opération)
 if not isinstance(_pg, datetime.datetime):
-    raise SystemExit('Date du CR introuvable en Page de garde!B22 : %r' % _pg)
+    raise SystemExit('Date du CR introuvable en Page de garde : %r' % _pg)
 K.init(Book(CORRIGE), _pg)
 from cr_classeur import *  # noqa: E402,F401,F403
 
