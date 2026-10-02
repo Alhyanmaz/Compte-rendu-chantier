@@ -1,3 +1,8 @@
 # Classeurs de chantier : données personnelles (coordonnées), jamais versionnés
 *.xlsx
 __pycache__/
+
+# Index SQLite du vault hyperresearch : cache reconstructible (hyperresearch sync) depuis research/notes/
+.hyperresearch/*.db
+.hyperresearch/*.db-shm
+.hyperresearch/*.db-wal
